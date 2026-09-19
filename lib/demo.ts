@@ -1,0 +1,11 @@
+import type { Job } from './model';
+const items = [
+ ['1', 'Desenvolvedor Front-end React', 'Órbita', 'Front-end', 'Remoto', 'Pleno', ['React', 'TypeScript', 'Next.js'], 'R$ 7.000 – R$ 10.000', 'Construa interfaces acessíveis e produtos digitais com React, TypeScript e Next.js. Colabore com o time de design e participe das decisões técnicas.'],
+ ['2', 'Pessoa Desenvolvedora Full Stack', 'Vértice', 'Full Stack', 'Híbrido', 'Pleno', ['Node.js', 'React', 'PostgreSQL'], 'R$ 8.000 – R$ 12.000', 'Desenvolva experiências web com React e APIs em Node.js. Conhecimentos de PostgreSQL e Git. Modelo híbrido em São Paulo.'],
+ ['3', 'Desenvolvedor Front-end Júnior', 'Forma', 'Front-end', 'Remoto', 'Júnior', ['JavaScript', 'HTML', 'CSS'], 'R$ 3.500 – R$ 5.000', 'Crie páginas responsivas usando HTML, CSS e JavaScript. Trabalhe com revisão de código, Git e atenção à acessibilidade.'],
+ ['4', 'Front-end Developer', 'Ponto Digital', 'Front-end', 'Presencial', 'Pleno', ['React', 'TypeScript', 'Testes'], 'Salário a combinar', 'Desenvolvimento de aplicações React com TypeScript. Escreva testes e participe do nosso time de produtos em São Paulo.'],
+ ['5', 'UI/UX Designer Júnior', 'Órbita', 'UI/UX', 'Remoto', 'Júnior', ['Figma', 'Prototipação', 'UI'], 'R$ 3.000 – R$ 4.500', 'Crie interfaces no Figma, desenvolva protótipos e participe das pesquisas com usuários. Oportunidade para quem está começando em UI e UX.'],
+ ['6', 'Product Designer Júnior', 'Forma', 'UI/UX', 'Híbrido', 'Júnior', ['Figma', 'Pesquisa', 'Design System'], 'R$ 3.500 – R$ 5.000', 'Apoie pesquisas com usuários, desenhe fluxos e contribua com nosso Design System no Figma. Trabalho híbrido em São Paulo.'],
+ ['7', 'Designer de Interfaces Júnior', 'Vértice', 'UI/UX', 'Presencial', 'Júnior', ['Figma', 'UI', 'Acessibilidade'], 'Salário a combinar', 'Desenhe interfaces web e mobile acessíveis no Figma. Colabore com desenvolvimento e evolua sua prática em UI.'],
+] as const;
+export const demoJobs: Job[] = items.map(x => ({ id: `demo-${x[0]}`, title: x[1], company: x[2], role: x[3], mode: x[4], level: x[5], tags: [...x[6]], salary: x[7], description: x[8], location: x[4] === 'Remoto' ? 'Brasil' : 'São Paulo, SP', source: 'Demonstração', url: '', published: '', demo: true }));
