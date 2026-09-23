@@ -4,7 +4,7 @@ import { demoJobs } from '@/lib/demo';
 export async function POST(request: Request) {
   try {
     checkMutation(request);
-    const user = owner(request);
+    const user = await owner(request);
     const { profileId, jobId } = await request.json() as { profileId: string; jobId: string };
     const state = await workspace(user);
     const profile = state.profiles.find(p => p.id === profileId);

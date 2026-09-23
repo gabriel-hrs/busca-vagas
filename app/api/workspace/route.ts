@@ -1,12 +1,12 @@
 import { checkMutation, failure, owner, put, workspace } from '@/lib/server';
 import { safeUrl, type Profile, type Job, type Action } from '@/lib/model';
 export async function GET(request: Request) {
-  try { return Response.json(await workspace(owner(request)), { headers: { 'Cache-Control': 'private, no-store' } }); } catch (e) { return failure(e); }
+  try { return Response.json(await workspace(await owner(request)), { headers: { 'Cache-Control': 'private, no-store' } }); } catch (e) { return failure(e); }
 }
 export async function POST(request: Request) {
   try {
     checkMutation(request);
-    const user = owner(request);
+    const user = await owner(request);
     if (Number(request.headers.get('content-length') || 0) > 100000) throw new Error('Conteúdo muito grande.');
     const body = await request.json() as { type: string; value: Profile & Job & Action; key: string };
     if (body.type === 'profile') {

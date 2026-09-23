@@ -6,10 +6,11 @@ import { assess, normalize, profileFits, profiles, safeUrl, tailor, type Action,
 import { demoJobs } from '@/lib/demo';
 import { indeedSearchUrl, linkedinSearchUrl, sourceStatuses } from '@/lib/sources';
 
-type View = 'explore' | 'saved' | 'applications' | 'profile' | 'sources';
+type View = 'explore' | 'saved' | 'applications' | 'profile' | 'sources' | 'security';
 const stageOptions: Stage[] = ['Salva', 'Candidatura enviada', 'Entrevista', 'Proposta', 'Encerrada'];
 const emptyState: Workspace = { profiles, jobs: [], actions: {}, lastSync: null, sources: sourceStatuses };
 const defaultAction: Action = { saved: false, stage: 'Salva', notes: '' };
+type SecurityState = { account: { profileId: ProfileId; name: string; contacts: { type: 'sms' | 'email'; label: string; verified: boolean }[] } | null; accounts: { profileId: ProfileId; name: string; contacts: { type: 'sms' | 'email'; label: string; verified: boolean }[] }[]; enforcement: { access: string; secondFactor: string } };
 const themeKey = 'busca-vagas-theme';
 const themeEvent = 'busca-vagas-theme-change';
 function getThemeSnapshot(): 'light' | 'dark' {
@@ -67,10 +68,15 @@ export default function Home() {
   const [sidebar, setSidebar] = useState(false);
   const [filters, setFilters] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [security, setSecurity] = useState<SecurityState | null>(null);
   const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => 'light');
   const profile = state.profiles.find(p => p.id === active)!;
   const load = useCallback(async () => {
     const data: Workspace = await api<Workspace>('/api/workspace'); setState(data); return data;
+  }, []);
+  const loadSecurity = useCallback(async () => {
+    try { setSecurity(await api<SecurityState>('/api/security')); }
+    catch (e) { setNotice((e as Error).message); }
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +104,7 @@ export default function Home() {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
-  const navigate = (next: View) => { setView(next); setSidebar(false); };
+  const navigate = (next: View) => { setView(next); setSidebar(false); if (next === 'security') void loadSecurity(); };
   const toggleTheme = () => {
     localStorage.setItem(themeKey, theme === 'dark' ? 'light' : 'dark');
     window.dispatchEvent(new Event(themeEvent));
@@ -150,11 +156,12 @@ export default function Home() {
       <div className="sidebar-divider" /><span className="sidebar-section-label">PREFERÊNCIAS</span>
       <button className={`nav-item ${view === 'sources' ? 'active' : ''}`} onClick={() => navigate('sources')}><Globe2 size={19} /><span>Fontes de vagas</span><span className="status-dot" /></button>
       <button className="nav-item" onClick={() => navigate('profile')}><Settings2 size={19} /><span>Meu perfil</span></button>
+      <button className={`nav-item ${view === 'security' ? 'active' : ''}`} onClick={() => navigate('security')}><ShieldCheck size={19} /><span>Segurança</span></button>
       <div className="sidebar-bottom"><div className="little-note"><div className="note-icon"><Sparkles size={18} /></div><strong>Seu talento, no lugar certo.</strong><p>Um próximo passo de cada vez.<br />A gente ajuda no caminho.</p><button onClick={() => navigate('profile')}>Completar meu perfil <ArrowUpRight size={15} /></button></div>
       <div className="sidebar-profile"><span className={`avatar ${active}`}>{profile.name.slice(0, 1)}</span><div><strong>{profile.name}</strong><small>Espaço pessoal</small></div><button className="icon-button" aria-label="Editar meu perfil" onClick={() => navigate('profile')}><Settings2 size={17} /></button></div></div>
     </aside>
     <div className="main-shell">
-      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setSidebar(true)}><Menu size={21} /></button><span>Meu espaço</span><ChevronRight size={14} /><strong>{view === 'sources' ? 'Fontes de vagas' : navItems.find(n => n.id === view)?.label}</strong></div><div className="topbar-right"><button className="icon-button theme-toggle" aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'} aria-pressed={theme === 'dark'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className="private-label"><ShieldCheck size={15} /> Espaço privado</span><div className="top-profile"><span className={`avatar tiny ${active}`}>{profile.name[0]}</span><select aria-label="Selecionar perfil" value={active} onChange={e => switchProfile(e.target.value as ProfileId)}>{state.profiles.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select><ChevronDown size={14} /></div></div></header>
+      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setSidebar(true)}><Menu size={21} /></button><span>Meu espaço</span><ChevronRight size={14} /><strong>{view === 'sources' ? 'Fontes de vagas' : view === 'security' ? 'Segurança' : navItems.find(n => n.id === view)?.label}</strong></div><div className="topbar-right"><button className="icon-button theme-toggle" aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'} aria-pressed={theme === 'dark'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className="private-label"><ShieldCheck size={15} /> Espaço privado</span><div className="top-profile"><span className={`avatar tiny ${active}`}>{profile.name[0]}</span><select aria-label="Selecionar perfil" value={active} onChange={e => switchProfile(e.target.value as ProfileId)}>{state.profiles.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select><ChevronDown size={14} /></div></div></header>
       <main>
         {authError && <div className="notice-banner">Entre para acessar seus currículos e suas vagas. <a href="/signin-with-chatgpt?return_to=/">Entrar com ChatGPT <ArrowRight size={15} /></a></div>}
         {(view === 'explore' || view === 'saved' || view === 'applications') && <>
@@ -171,6 +178,7 @@ export default function Home() {
         </>}
         {view === 'profile' && <ProfileEditor key={active} profile={profile} onSwitch={switchProfile} onSave={async p => { await api('/api/workspace', { type: 'profile', value: p }); await load(); setLevel(p.seniority); setNotice('Currículo salvo. A compatibilidade das vagas foi recalculada.'); }} />}
         {view === 'sources' && <Sources profile={profile} lastSync={state.lastSync} sources={state.sources} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} />}
+        {view === 'security' && <SecurityPanel data={security} onRefresh={loadSecurity} />}
         <footer className="page-footer"><span>buscavagas<span>.</span></span><p>Menos abas abertas. Mais caminhos pela frente.</p><button onClick={() => navigate('sources')}><CircleHelp size={14} /> Como funciona</button></footer>
       </main>
     </div>
@@ -196,6 +204,10 @@ function JobDetails({ job, profile, action, busy, onSave, onGenerate }: { job: J
 function Sources({ profile, lastSync, sources, syncing, onSync, onAdd }: { profile: Profile; lastSync: string | null; sources: SourceStatus[]; syncing: boolean; onSync: () => void; onAdd: () => void }) {
   const linkFor = (source: SourceStatus) => source.name === 'LinkedIn' ? linkedinSearchUrl(profile.id) : source.name === 'Indeed' ? indeedSearchUrl(profile.id) : source.homepage;
   return <><section className="page-heading"><div><div className="eyebrow"><span /> AMPLIE SEU RADAR</div><h1>Boas oportunidades, reunidas<span>.</span></h1><p>Fontes de vagas e atalhos de busca para o seu perfil.</p></div><button disabled={syncing} className="button secondary refresh-button" onClick={onSync}><RefreshCw size={16} className={syncing ? 'spinning' : ''} />{syncing ? 'Buscando...' : 'Atualizar fontes'}</button></section><div className="sources-grid">{sources.map(source => <article className="panel source-card" key={source.name}><div className="source-icon">{source.name === 'LinkedIn' ? 'in' : source.name.slice(0, 1).toLowerCase()}</div><span className={`integration-badge ${source.available ? '' : 'neutral'}`}>{source.available ? 'Coleta automática' : source.automatic ? 'Acesso restrito' : 'Manual'}</span><h2>{source.name}</h2><p>{source.available ? 'Entra automaticamente no radar de vagas compatíveis.' : 'Pode ser usada por atalho ou importação manual quando encontrar uma vaga interessante.'}</p><small>{source.message}</small>{source.available ? <><button disabled={syncing} className="button primary" onClick={onSync}><RefreshCw size={16} className={syncing ? 'spinning' : ''} />{syncing ? 'Buscando...' : 'Atualizar'}</button>{lastSync && <small>Última coleta: {new Date(lastSync).toLocaleString('pt-BR')}</small>}</> : <button className="text-button" onClick={onAdd}><Plus size={15} /> Adicionar uma vaga</button>}<a className="button secondary" href={linkFor(source)} target="_blank" rel="noreferrer">Abrir fonte <ArrowUpRight size={16} /></a><a href={source.docs} target="_blank" rel="noreferrer">Documentação ou site <ArrowUpRight size={13} /></a></article>)}</div><div className="panel explanation"><Globe2 size={25} /><div><h3>Critério de integração</h3><p>O Busca Vagas prioriza API pública, RSS oficial e GitHub Issues públicas. Isso cobre Remotive, Himalayas, Remote OK, We Work Remotely e FrontendBR sem conta empresarial.</p><p>Sites com login, parceria, assinatura, marketplace fechado ou anti-bot ficam como importação manual até existir uma API autorizada para sua conta.</p></div></div></>;
+}
+
+function SecurityPanel({ data, onRefresh }: { data: SecurityState | null; onRefresh: () => void }) {
+  return <><section className="page-heading"><div><div className="eyebrow"><span /> ACESSO PROTEGIDO</div><h1>Segurança da conta<span>.</span></h1><p>Contas autorizadas, métodos de verificação mascarados e próximos passos antes da publicação.</p></div><button className="button secondary refresh-button" onClick={onRefresh}><RefreshCw size={16} /> Atualizar status</button></section><div className="security-layout"><section className="panel security-panel"><span className="stat-icon green"><ShieldCheck size={23} /></span><h2>Acesso em produção</h2><p className="muted">{data?.enforcement.access || 'Carregando configuração de segurança...'}</p><div className="security-list">{(data?.accounts || []).map(account => <article key={account.profileId} className={`security-account ${data?.account?.profileId === account.profileId ? 'current' : ''}`}><div><strong>{account.name}</strong><small>{data?.account?.profileId === account.profileId ? 'Conta autenticada atual' : 'Conta autorizada'}</small></div>{account.contacts.map(contact => <span key={`${account.profileId}-${contact.type}`} className="security-chip"><ShieldCheck size={12} />{contact.type === 'sms' ? 'SMS' : 'E-mail'} · {contact.label}</span>)}</article>)}</div></section><aside className="panel guide-panel"><span className="stat-icon violet"><ShieldCheck size={23} /></span><h3>Dupla autenticação</h3><p>{data?.enforcement.secondFactor || 'Métodos cadastrados com dados sensíveis mascarados.'}</p><ul><li><Check size={16} /> Contatos completos não aparecem na interface</li><li><Check size={16} /> Produção bloqueia contas não autorizadas</li><li><Check size={16} /> Envio real depende de provedor externo</li></ul><div className="guide-note"><ShieldCheck size={18} /><p>Para códigos reais por SMS e e-mail, conecte Twilio, Resend, SendGrid ou provedor equivalente antes de abrir acesso público.</p></div></aside></div></>;
 }
 function AddJob({ onClose, onSave }: { onClose: () => void; onSave: (value: Record<string, string>) => Promise<void> }) {
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');

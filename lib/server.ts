@@ -1,11 +1,9 @@
 import { env } from 'cloudflare:workers';
 import { profiles, type Job, type Workspace } from './model';
+import { authenticatedAccount } from './security';
 import { sourceStatuses } from './sources';
-export function owner(request: Request) {
-  const id = request.headers.get('oai-authenticated-user-id');
-  if (id) return id;
-  if (import.meta.env.DEV) return 'local-workspace';
-  throw new Error('AUTH_REQUIRED');
+export async function owner(request: Request) {
+  return (await authenticatedAccount(request)).owner;
 }
 export function checkMutation(request: Request) {
   const origin = request.headers.get('origin');
@@ -47,5 +45,5 @@ export async function put(user: string, key: string, value: unknown) {
 }
 export function failure(error: unknown) {
   const message = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
-  return Response.json({ error: message === 'AUTH_REQUIRED' ? 'Entre na sua conta para acessar seus dados.' : message }, { status: message === 'AUTH_REQUIRED' ? 401 : message === 'INVALID_ORIGIN' ? 403 : 400 });
+  return Response.json({ error: message === 'AUTH_REQUIRED' ? 'Entre na sua conta para acessar seus dados.' : message === 'ACCESS_DENIED' ? 'Esta conta não está autorizada a acessar o Busca Vagas.' : message }, { status: message === 'AUTH_REQUIRED' ? 401 : message === 'ACCESS_DENIED' || message === 'INVALID_ORIGIN' ? 403 : 400 });
 }

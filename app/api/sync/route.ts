@@ -3,7 +3,7 @@ import { dedupeJobs, fetchAutomaticSources, sourceStatuses } from '@/lib/sources
 const summarize = (results: { source: string; jobs: unknown[]; error?: string }[]) => results.map(result => ({ source: result.source, count: result.jobs.length, error: result.error }));
 export async function POST(request: Request) {
   try {
-    checkMutation(request); owner(request);
+    checkMutation(request); await owner(request);
     const body = await request.json().catch(() => ({})) as { force?: boolean };
     const db = await database();
     const previous = await db.prepare('SELECT updated_at, value FROM feeds WHERE source = ?').bind('automatic').first<{updated_at: string; value: string}>();

@@ -13,6 +13,14 @@ npm run dev
 
 Acesse o endereço exibido pelo servidor. Na rede local, use o endereço IP do notebook com a porta exibida para acessar pelo celular; os dois devem estar na mesma rede. O modo de desenvolvimento dispensa login e compartilha o espaço local. Não exponha o servidor de desenvolvimento à internet.
 
+Para testar o bloqueio de login localmente, use:
+
+```sh
+npm run dev:secure
+```
+
+Nesse modo, requisições sem identidade autenticada retornam erro de login, como em produção. A publicação privada no Sites injeta os headers de usuário autenticado.
+
 ```sh
 npm test
 npm run typecheck
@@ -55,7 +63,11 @@ A adaptação é determinística, sem serviço pago de IA: define o objetivo da 
 
 React 19, TypeScript, vinext/Vite e Cloudflare Workers. O banco D1 armazena perfis, anúncios adicionados, favoritos, etapas, anotações e snapshots dos currículos gerados. `.openai/hosting.json` declara o binding lógico `DB`; o banco local fica em `.wrangler/`, ignorado pelo Git. Migração em `drizzle/`.
 
-Dados pessoais são separados por identidade autenticada do Sites e perfil selecionado. O ambiente local tem uma identidade de desenvolvimento. Publicação privada usa autenticação do Sites; os endpoints de produção rejeitam requisições sem identidade. Os perfis Gabriel e Milena são personas dentro do espaço de uma conta, não contas independentes; uma publicação privada do proprietário não concede automaticamente acesso à conta da Milena.
+Dados pessoais são separados por identidade autenticada do Sites e perfil selecionado. O ambiente local tem uma identidade de desenvolvimento. Publicação privada usa autenticação do Sites; os endpoints de produção rejeitam requisições sem identidade e restringem acesso às contas autorizadas. Os perfis Gabriel e Milena são personas dentro do espaço de uma conta, não contas independentes; uma publicação privada do proprietário não concede automaticamente acesso à conta da Milena.
+
+## Segurança de acesso
+
+O app mantém uma lista de contas autorizadas por hash SHA-256 do e-mail autenticado, sem exibir e-mail ou telefone completos na interface. A tela **Segurança** mostra apenas métodos mascarados, como `996****47` e e-mails parcialmente ocultos. O envio real de códigos por SMS/e-mail não está embutido: antes de abrir o acesso público, conecte um provedor autorizado como Twilio, Resend, SendGrid ou equivalente e faça a verificação do código no servidor.
 
 Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed. Currículos inseridos localmente não são incluídos no código nem enviados na publicação. A versão adaptada preserva o currículo-base; alterações feitas no editor de exportação ficam apenas no arquivo baixado.
 

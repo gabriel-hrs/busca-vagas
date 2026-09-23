@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assess, tailor, containsSkill, profileFits, safeUrl, profiles } from '../lib/model.ts';
+import { authenticatedAccount, securityAccounts } from '../lib/security.ts';
 const job = { id: 'test', title: 'Front-end Developer', company: 'Teste', tags: ['React', 'TypeScript'], description: 'React e TypeScript', role: 'Front-end', level: 'Júnior' };
 test('unknown profile does not get a fabricated score', () => {
   assert.equal(assess(job, profiles[0]).score, null);
@@ -32,4 +33,16 @@ test('external job links cannot execute scripts', () => {
   assert.equal(safeUrl('javascript:alert(1)'), '');
   assert.equal(safeUrl('data:text/html,hello'), '');
   assert.equal(safeUrl('https://example.com/jobs/1'), 'https://example.com/jobs/1');
+});
+test('security contacts are masked and authorized accounts are checked by email hash', async () => {
+  const labels = securityAccounts.flatMap(account => account.contacts.map(contact => contact.label));
+  assert.ok(labels.includes('996****47'));
+  assert.ok(labels.includes('991****17'));
+  assert.ok(!labels.some(label => label.includes('996384747') || label.includes('991414617')));
+  const request = new Request('https://app.local/api/security', { headers: { 'oai-authenticated-user-id': 'user', 'oai-authenticated-user-email': 'gabriel.henrique7087@gmail.com' } });
+  assert.equal((await authenticatedAccount(request)).account?.profileId, 'gabriel');
+  const outsider = new Request('https://app.local/api/security', { headers: { 'oai-authenticated-user-id': 'user', 'oai-authenticated-user-email': 'outsider@example.com' } });
+  await assert.rejects(() => authenticatedAccount(outsider), /ACCESS_DENIED/);
+  const local = new Request('https://app.local/api/security');
+  assert.equal((await authenticatedAccount(local)).owner, 'local-workspace');
 });
