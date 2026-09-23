@@ -23,7 +23,7 @@ npm run build
 
 1. Selecione Gabriel ou Milena e abra **Meu currículo**.
 2. Cole o texto do currículo ou importe um `.txt`; informe apenas competências reais.
-3. Clique em **Atualizar vagas** para coletar oportunidades da Remotive.
+3. Clique em **Atualizar vagas** para coletar oportunidades das fontes automáticas disponíveis.
 4. Para vagas de outros portais, use **Adicionar vaga** com link e descrição.
 5. Abra a oportunidade para ver a compatibilidade, salvar, anotar e acompanhar a candidatura.
 6. Use **Adaptar currículo**, revise o texto e baixe uma versão `.txt`.
@@ -33,7 +33,13 @@ Os anúncios de demonstração são fictícios e identificados como tais. Não r
 ## Coleta e fontes
 
 - **Remotive:** integração real com API pública, cache persistente por seis horas, vagas Front-end, Full Stack e UI/UX com localização declarada Brasil, América Latina, América do Sul ou mundial. A API publica com atraso de 24 horas. Sempre é necessário confirmar restrições e validade no anúncio original. Crédito e link da Remotive são preservados.
-- **LinkedIn e Indeed:** atalhos de busca e cadastro manual de anúncios. Nenhuma integração de coleta é simulada. APIs oficiais dependem de credenciais, aprovação e escopo apropriado.
+- **Himalayas:** integração por API pública sem chave para vagas remotas de tecnologia e design. O link original e a atribuição da fonte são preservados.
+- **Remote OK:** integração por feed JSON público. O app preserva crédito e link direto para a vaga, conforme exigência da fonte.
+- **We Work Remotely:** integração por RSS oficial de programação, front-end, full stack e design. O app preserva atribuição e link de volta.
+- **FrontendBR:** integração por GitHub Issues públicas do repositório `frontendbr/vagas`, útil para vagas brasileiras de front-end.
+- **LinkedIn:** não há coleta automática nesta versão porque o acesso oficial de Jobs é restrito a desenvolvedores aprovados pelo LinkedIn Talent Solutions. O app exibe o status da fonte, a documentação oficial e o atalho de busca por perfil.
+- **Indeed:** não há coleta automática nesta versão porque as APIs oficiais dependem de credenciais provisionadas pelo Partner Console da Indeed. O app exibe o status da fonte, a documentação oficial e o atalho de busca por perfil.
+- **Vagas.com, Revelo, InfoJobs, Vulpi, GeekHunter, Programathor, Upwork, Fiverr, Freelancer e similares:** ficam como importação manual enquanto não houver API pública/autorizada adequada para busca pessoal. O sistema não faz scraping agressivo nem contorna login, parceria, paywall ou anti-bot.
 - A coleta acontece automaticamente ao abrir a aplicação se o cache tiver mais de seis horas, ou ao usar **Atualizar vagas**. Não há execução agendada quando a aplicação está fechada.
 - MCP não é necessário para a coleta por API. Não há servidor MCP conectado nesta versão.
 
@@ -55,4 +61,4 @@ Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed
 
 ## Próximas integrações
 
-Para captura adicional em portais restritos, será necessário escolher um provedor autorizado e configurar suas credenciais no servidor. Não são necessários segredos para a Remotive. Uma implantação compartilhada entre duas contas requer configurar acesso e modelo de compartilhamento; não torne o espaço público para compartilhar currículos.
+LinkedIn, Indeed e portais fechados podem virar conectores automáticos quando houver credenciais oficiais compatíveis com o caso de uso. Até lá, o sistema usa API pública, RSS oficial, GitHub Issues públicas e importação manual. Não são necessários segredos para Remotive, Himalayas, Remote OK, We Work Remotely ou FrontendBR. Uma implantação compartilhada entre duas contas requer configurar acesso e modelo de compartilhamento; não torne o espaço público para compartilhar currículos.

@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { profiles, type Workspace } from './model';
+import { profiles, type Job, type Workspace } from './model';
+import { sourceStatuses } from './sources';
 export function owner(request: Request) {
   const id = request.headers.get('oai-authenticated-user-id');
   if (id) return id;
@@ -22,8 +23,16 @@ export async function database() {
 export async function workspace(user: string): Promise<Workspace> {
   const db = await database();
   const rows = await db.prepare('SELECT key, value FROM records WHERE owner = ?').bind(user).all<{ key: string; value: string }>();
-  const feed = await db.prepare('SELECT value, updated_at FROM feeds WHERE source = ?').bind('remotive').first<{value: string; updated_at: string}>();
-  const state: Workspace = { profiles: profiles.map(p => ({ ...p })), jobs: feed ? JSON.parse(feed.value) : [], actions: {}, lastSync: feed?.updated_at || null };
+  const feedRows = await db.prepare('SELECT source, value, updated_at FROM feeds').all<{source: string; value: string; updated_at: string}>();
+  const jobs: Job[] = [];
+  let lastSync: string | null = null;
+  for (const feed of feedRows.results) {
+    const value = JSON.parse(feed.value);
+    const feedJobs = Array.isArray(value) ? value : Array.isArray(value.jobs) ? value.jobs : [];
+    jobs.push(...feedJobs);
+    if (!lastSync || Date.parse(feed.updated_at) > Date.parse(lastSync)) lastSync = feed.updated_at;
+  }
+  const state: Workspace = { profiles: profiles.map(p => ({ ...p })), jobs, actions: {}, lastSync, sources: sourceStatuses };
   for (const row of rows.results) {
     const value = JSON.parse(row.value);
     if (row.key.startsWith('profile:')) state.profiles = state.profiles.map(p => p.id === value.id ? value : p);

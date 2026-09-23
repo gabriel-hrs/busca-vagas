@@ -5,7 +5,8 @@ export type Profile = { id: ProfileId; name: string; headline: string; resume: s
 export type Job = { id: string; title: string; company: string; location: string; mode: Mode; role: Role; level: string; tags: string[]; salary: string; description: string; url: string; source: string; published: string; demo?: boolean };
 export type Stage = 'Salva' | 'Candidatura enviada' | 'Entrevista' | 'Proposta' | 'Encerrada';
 export type Action = { saved: boolean; stage: Stage; notes: string };
-export type Workspace = { profiles: Profile[]; jobs: Job[]; actions: Record<string, Action>; lastSync: string | null };
+export type SourceStatus = { name: string; automatic: boolean; available: boolean; message: string; docs: string; homepage: string };
+export type Workspace = { profiles: Profile[]; jobs: Job[]; actions: Record<string, Action>; lastSync: string | null; sources: SourceStatus[] };
 export const profiles: Profile[] = [
   { id: 'gabriel', name: 'Gabriel', headline: 'Desenvolvedor Front-end / Full Stack', resume: '', skills: '', seniority: 'Todas' },
   { id: 'milena', name: 'Milena', headline: 'Designer UI/UX Júnior', resume: '', skills: '', seniority: 'Júnior' },
