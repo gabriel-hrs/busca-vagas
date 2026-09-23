@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowDownUp, ArrowRight, ArrowUpRight, Bookmark, BriefcaseBusiness, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Code2, Download, FileText, Globe2, LoaderCircle, MapPin, Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Target, Upload, Users, WandSparkles, Wifi, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
+import { ArrowDownUp, ArrowRight, ArrowUpRight, Bookmark, BriefcaseBusiness, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Code2, Download, FileText, Globe2, LoaderCircle, MapPin, Menu, Moon, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Target, Upload, Users, WandSparkles, Wifi, X } from 'lucide-react';
 import { assess, normalize, profileFits, profiles, safeUrl, tailor, type Action, type Job, type Profile, type ProfileId, type SourceStatus, type Stage, type Workspace } from '@/lib/model';
 import { demoJobs } from '@/lib/demo';
 import { indeedSearchUrl, linkedinSearchUrl, sourceStatuses } from '@/lib/sources';
@@ -10,6 +10,22 @@ type View = 'explore' | 'saved' | 'applications' | 'profile' | 'sources';
 const stageOptions: Stage[] = ['Salva', 'Candidatura enviada', 'Entrevista', 'Proposta', 'Encerrada'];
 const emptyState: Workspace = { profiles, jobs: [], actions: {}, lastSync: null, sources: sourceStatuses };
 const defaultAction: Action = { saved: false, stage: 'Salva', notes: '' };
+const themeKey = 'busca-vagas-theme';
+const themeEvent = 'busca-vagas-theme-change';
+function getThemeSnapshot(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'light';
+  const stored = localStorage.getItem(themeKey);
+  if (stored === 'dark' || stored === 'light') return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function subscribeTheme(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener(themeEvent, callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(themeEvent, callback);
+  };
+}
 async function api<T = { ok: boolean; count: number; cached: boolean; sources?: SourceStatus[]; results?: { source: string; count: number; error?: string }[] }>(url: string, body?: unknown) {
   const response = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
   const data = await response.json() as T & { error?: string };
@@ -51,6 +67,7 @@ export default function Home() {
   const [sidebar, setSidebar] = useState(false);
   const [filters, setFilters] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => 'light');
   const profile = state.profiles.find(p => p.id === active)!;
   const load = useCallback(async () => {
     const data: Workspace = await api<Workspace>('/api/workspace'); setState(data); return data;
@@ -77,7 +94,15 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [load]);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 7500); return () => clearTimeout(t); }, [notice]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
   const navigate = (next: View) => { setView(next); setSidebar(false); };
+  const toggleTheme = () => {
+    localStorage.setItem(themeKey, theme === 'dark' ? 'light' : 'dark');
+    window.dispatchEvent(new Event(themeEvent));
+  };
   const switchProfile = (id: ProfileId) => { setActive(id); setLevel(state.profiles.find(p => p.id === id)?.seniority || 'Todas'); setRole('Todas'); setSelected(null); setResume(null); };
   const actionFor = (job: Job) => state.actions[`${active}:${job.id}`] || defaultAction;
   const pool = demo ? demoJobs : state.jobs;
@@ -129,7 +154,7 @@ export default function Home() {
       <div className="sidebar-profile"><span className={`avatar ${active}`}>{profile.name.slice(0, 1)}</span><div><strong>{profile.name}</strong><small>Espaço pessoal</small></div><button className="icon-button" aria-label="Editar meu perfil" onClick={() => navigate('profile')}><Settings2 size={17} /></button></div></div>
     </aside>
     <div className="main-shell">
-      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setSidebar(true)}><Menu size={21} /></button><span>Meu espaço</span><ChevronRight size={14} /><strong>{view === 'sources' ? 'Fontes de vagas' : navItems.find(n => n.id === view)?.label}</strong></div><div className="topbar-right"><span className="private-label"><ShieldCheck size={15} /> Espaço privado</span><div className="top-profile"><span className={`avatar tiny ${active}`}>{profile.name[0]}</span><select aria-label="Selecionar perfil" value={active} onChange={e => switchProfile(e.target.value as ProfileId)}>{state.profiles.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select><ChevronDown size={14} /></div></div></header>
+      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setSidebar(true)}><Menu size={21} /></button><span>Meu espaço</span><ChevronRight size={14} /><strong>{view === 'sources' ? 'Fontes de vagas' : navItems.find(n => n.id === view)?.label}</strong></div><div className="topbar-right"><button className="icon-button theme-toggle" aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'} aria-pressed={theme === 'dark'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className="private-label"><ShieldCheck size={15} /> Espaço privado</span><div className="top-profile"><span className={`avatar tiny ${active}`}>{profile.name[0]}</span><select aria-label="Selecionar perfil" value={active} onChange={e => switchProfile(e.target.value as ProfileId)}>{state.profiles.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select><ChevronDown size={14} /></div></div></header>
       <main>
         {authError && <div className="notice-banner">Entre para acessar seus currículos e suas vagas. <a href="/signin-with-chatgpt?return_to=/">Entrar com ChatGPT <ArrowRight size={15} /></a></div>}
         {(view === 'explore' || view === 'saved' || view === 'applications') && <>
