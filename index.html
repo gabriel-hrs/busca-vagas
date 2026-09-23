@@ -172,7 +172,7 @@
       }
 
       button {
-        margin-top: 14px;
+        margin-top: 18px;
         color: #07111f;
         background: linear-gradient(90deg, var(--brand), var(--brand-2));
         font-weight: 900;
@@ -180,30 +180,51 @@
         opacity: 0.82;
       }
 
-      .methods {
-        display: grid;
-        gap: 12px;
+      .field + .field {
         margin-top: 18px;
       }
 
+      .methods {
+        display: grid;
+        gap: 10px;
+      }
+
       .method {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
+        position: relative;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: center;
         padding: 14px;
         border: 1px solid var(--line);
         border-radius: 18px;
         background: rgba(2, 6, 23, 0.42);
+        cursor: pointer;
       }
 
-      .method span:first-child {
-        color: #cbd5e1;
-        font-weight: 800;
+      .method input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--brand);
       }
 
-      .method span:last-child {
+      .method strong {
+        display: block;
+        color: #e5e7eb;
+        font-size: 15px;
+      }
+
+      .method span {
+        display: block;
+        margin-top: 2px;
         color: #bae6fd;
-        text-align: right;
+        font-size: 14px;
+      }
+
+      .method:has(input:checked) {
+        border-color: rgba(56, 189, 248, 0.72);
+        background: rgba(14, 165, 233, 0.12);
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
       }
 
       .notice {
@@ -260,21 +281,33 @@
       </section>
 
       <section class="card" aria-labelledby="login-title">
-        <h2 id="login-title">Entrar no Busca Vagas</h2>
-        <p>Escolha a conta autorizada. Os métodos aparecem mascarados para não expor dados sensíveis nesta página pública.</p>
+        <h2 id="login-title">Receber código de acesso</h2>
+        <p>Escolha a pessoa autorizada e o canal para receber o código. Os dados ficam mascarados nesta página pública.</p>
 
         <div class="login-box">
-          <label for="account">Conta</label>
-          <select id="account" aria-label="Conta autorizada">
-            <option>Gabriel · Dev Front / Full Stack</option>
-            <option>Milena · UI/UX júnior</option>
-          </select>
-          <button type="button" aria-disabled="true">Login seguro disponível na versão privada</button>
-
-          <div class="methods" aria-label="Métodos de dupla autenticação cadastrados">
-            <div class="method"><span>Gabriel</span><span>SMS 996****47 · e-mail g***@gmail.com</span></div>
-            <div class="method"><span>Milena</span><span>SMS 991****17 · e-mail m***@gmail.com</span></div>
+          <div class="field">
+            <label for="account">Pessoa</label>
+            <select id="account" aria-label="Pessoa autorizada">
+              <option value="g">Pessoa G</option>
+              <option value="m">Pessoa M</option>
+            </select>
           </div>
+
+          <div class="field">
+            <label>Método de envio</label>
+            <div class="methods" aria-label="Métodos de dupla autenticação cadastrados">
+              <label class="method">
+                <input type="radio" name="delivery" checked />
+                <span><strong>SMS</strong><span id="sms-target">Enviar para 996****47</span></span>
+              </label>
+              <label class="method">
+                <input type="radio" name="delivery" />
+                <span><strong>E-mail</strong><span id="email-target">Enviar para g***@gmail.com</span></span>
+              </label>
+            </div>
+          </div>
+
+          <button type="button" aria-disabled="true">Enviar código na versão privada</button>
         </div>
 
         <div class="notice">
@@ -287,5 +320,20 @@
         </div>
       </section>
     </main>
+    <script>
+      const account = document.querySelector('#account');
+      const smsTarget = document.querySelector('#sms-target');
+      const emailTarget = document.querySelector('#email-target');
+      const targets = {
+        g: { sms: 'Enviar para 996****47', email: 'Enviar para g***@gmail.com' },
+        m: { sms: 'Enviar para 991****17', email: 'Enviar para m***@gmail.com' },
+      };
+
+      account?.addEventListener('change', () => {
+        const selected = targets[account.value] || targets.g;
+        smsTarget.textContent = selected.sms;
+        emailTarget.textContent = selected.email;
+      });
+    </script>
   </body>
 </html>
