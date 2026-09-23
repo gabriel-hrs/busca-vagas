@@ -27,6 +27,13 @@ npm run typecheck
 npm run build
 ```
 
+
+## GitHub Pages
+
+A raiz do repositório contém um `index.html` estático para que `https://gabriel-hrs.github.io/busca-vagas/` abra uma capa de login em vez do README. Essa capa não executa autenticação real, coleta de vagas, banco D1 nem rotas `/api`; o GitHub Pages só serve arquivos estáticos.
+
+Use o GitHub Pages como página pública de entrada/documentação. Para usar o Busca Vagas completo com login seguro, publique a aplicação em um ambiente com backend e autenticação privada.
+
 ## Como usar
 
 1. Selecione Gabriel ou Milena e abra **Meu currículo**.
