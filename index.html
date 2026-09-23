@@ -176,8 +176,17 @@
         color: #07111f;
         background: linear-gradient(90deg, var(--brand), var(--brand-2));
         font-weight: 900;
-        cursor: not-allowed;
-        opacity: 0.82;
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 30px rgba(56, 189, 248, 0.24);
+      }
+
+      button:active {
+        transform: translateY(0);
       }
 
       .field + .field {
@@ -227,15 +236,29 @@
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
       }
 
-      .notice {
+      .notice, .status {
         margin-top: 18px;
         padding: 14px;
-        border: 1px solid rgba(251, 191, 36, 0.32);
         border-radius: 18px;
-        color: #fde68a;
-        background: rgba(251, 191, 36, 0.08);
         font-size: 14px;
         line-height: 1.45;
+      }
+
+      .notice {
+        border: 1px solid rgba(251, 191, 36, 0.32);
+        color: #fde68a;
+        background: rgba(251, 191, 36, 0.08);
+      }
+
+      .status {
+        display: none;
+        border: 1px solid rgba(52, 211, 153, 0.34);
+        color: #bbf7d0;
+        background: rgba(52, 211, 153, 0.08);
+      }
+
+      .status.is-visible {
+        display: block;
       }
 
       .links {
@@ -307,7 +330,8 @@
             </div>
           </div>
 
-          <button type="button" aria-disabled="true">Enviar código na versão privada</button>
+          <button id="send-code" type="button">Enviar código de acesso</button>
+          <div id="status" class="status" role="status" aria-live="polite"></div>
         </div>
 
         <div class="notice">
@@ -324,15 +348,28 @@
       const account = document.querySelector('#account');
       const smsTarget = document.querySelector('#sms-target');
       const emailTarget = document.querySelector('#email-target');
+      const sendCode = document.querySelector('#send-code');
+      const status = document.querySelector('#status');
       const targets = {
-        g: { sms: 'Enviar para 996****47', email: 'Enviar para g***@gmail.com' },
-        m: { sms: 'Enviar para 991****17', email: 'Enviar para m***@gmail.com' },
+        g: { label: 'Pessoa G', sms: 'Enviar para 996****47', email: 'Enviar para g***@gmail.com' },
+        m: { label: 'Pessoa M', sms: 'Enviar para 991****17', email: 'Enviar para m***@gmail.com' },
       };
 
+      const selectedTarget = () => targets[account?.value] || targets.g;
+
       account?.addEventListener('change', () => {
-        const selected = targets[account.value] || targets.g;
+        const selected = selectedTarget();
         smsTarget.textContent = selected.sms;
         emailTarget.textContent = selected.email;
+        status?.classList.remove('is-visible');
+      });
+
+      sendCode?.addEventListener('click', () => {
+        const selected = selectedTarget();
+        const delivery = document.querySelector('input[name="delivery"]:checked')?.closest('.method')?.querySelector('strong')?.textContent || 'SMS';
+        const target = delivery === 'E-mail' ? selected.email.replace('Enviar para ', '') : selected.sms.replace('Enviar para ', '');
+        status.textContent = `Solicitação preparada para ${selected.label} via ${delivery}: ${target}. Nesta URL pública do GitHub Pages o envio real depende da versão privada com backend.`;
+        status.classList.add('is-visible');
       });
     </script>
   </body>
