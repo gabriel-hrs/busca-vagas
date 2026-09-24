@@ -1,6 +1,6 @@
 # Busca Vagas
 
-Aplicação web responsiva para organizar a busca de Gabriel (Front-end / Full Stack) e Milena (UI/UX júnior). Interface em português, com perfis, favoritos, candidaturas, coleta de vagas remotas, análise de competências e currículo adaptado.
+Aplicação web responsiva para organizar a busca de vagas. Interface em português, com perfis, favoritos, candidaturas, coleta de vagas remotas, análise de competências e currículo adaptado.
 
 ## Executar
 
@@ -81,7 +81,7 @@ O GitHub Pages continua não executando banco D1 nem rotas `/api`. Por isso, `do
 
 ## Como usar
 
-1. Selecione Gabriel ou Milena e abra **Meu currículo**.
+1. Selecione seu Perfil e abra **Meu currículo**.
 2. Cole o texto do currículo ou importe um `.txt`; informe apenas competências reais.
 3. Clique em **Atualizar vagas** para coletar oportunidades das fontes automáticas disponíveis.
 4. Para vagas de outros portais, use **Adicionar vaga** com link e descrição.
@@ -115,7 +115,7 @@ A adaptação é determinística, sem serviço pago de IA: define o objetivo da 
 
 React 19, TypeScript, vinext/Vite e Cloudflare Workers. O banco D1 armazena perfis, anúncios adicionados, favoritos, etapas, anotações e snapshots dos currículos gerados. `.openai/hosting.json` declara o binding lógico `DB`; o banco local fica em `.wrangler/`, ignorado pelo Git. Migração em `drizzle/`.
 
-Dados pessoais são separados por identidade autenticada do Sites e perfil selecionado. O ambiente local tem uma identidade de desenvolvimento. Publicação privada usa autenticação do Sites; os endpoints de produção rejeitam requisições sem identidade e restringem acesso às contas autorizadas. Os perfis Gabriel e Milena são personas dentro do espaço de uma conta, não contas independentes; uma publicação privada do proprietário não concede automaticamente acesso à conta da Milena.
+Dados pessoais são separados por identidade autenticada do Sites e perfil selecionado. O ambiente local tem uma identidade de desenvolvimento. Publicação privada usa autenticação do Sites; os endpoints de produção rejeitam requisições sem identidade e restringem acesso às contas autorizadas. Os perfis são personas dentro do espaço de uma conta, não contas independentes.
 
 ## Segurança de acesso
 
