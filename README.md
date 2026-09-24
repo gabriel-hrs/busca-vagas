@@ -38,7 +38,7 @@ Crie estes Secrets em **GitHub > Settings > Secrets and variables > Actions**:
 
 - `SUPABASE_URL`: Project URL do Supabase.
 - `SUPABASE_PUBLISHABLE_KEY`: Publishable key do Supabase.
-- `APP_URL`: opcional. Se ficar vazio, o Pages abre `./app.html`, a versão protegida estática com vagas, currículo e compatibilidade. Use outro valor apenas se quiser redirecionar para um app com backend publicado em outro endereço.
+- `APP_URL`: opcional. Se ficar vazio, o Pages abre `./app.html`, a versão protegida estática com vagas, currículo e compatibilidade. Use outro valor apenas se quiser redirecionar para um app com backend publicado em outro endereço. Não use `localhost` nesse Secret para produção.
 
 Para testar localmente a mesma home estática do GitHub Pages, copie o exemplo de configuração:
 
@@ -73,7 +73,7 @@ Para ativar o login por código de e-mail:
 
    Se o template usar `{{ .ConfirmationURL }}`, o e-mail vai mandar um link de login em vez do código/token para digitar na tela.
 6. Copie a **Project URL** e a **Publishable key** em **Project Settings > API Keys**.
-7. Para produção, salve `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` como Secrets do GitHub Actions. `APP_URL` é opcional: deixe sem criar para abrir `./app.html` no próprio GitHub Pages, ou crie se quiser redirecionar para outro app publicado. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
+7. Para produção, salve `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` como Secrets do GitHub Actions. `APP_URL` é opcional: deixe sem criar para abrir `./app.html` no próprio GitHub Pages, ou crie se quiser redirecionar para outro app publicado. Se ele estiver como `http://localhost:3000/`, o workflow troca automaticamente para `./app.html`. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
 
 O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`; por padrão, ela é `./app.html`. SMS fica desativado até configurar um provedor de SMS.
 

@@ -32,7 +32,9 @@ jobs:
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
-          APP_URL="${APP_URL:-./app.html}"
+          if [ -z "$APP_URL" ] || [ "$APP_URL" = "http://localhost:3000/" ] || [ "$APP_URL" = "http://127.0.0.1:3000/" ]; then
+            APP_URL="./app.html"
+          fi
           cat > docs/auth-config.js <<CONFIG
           window.BuscaVagasAuthConfig = {
             supabaseUrl: '$SUPABASE_URL',

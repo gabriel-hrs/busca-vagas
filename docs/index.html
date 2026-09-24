@@ -390,7 +390,7 @@
           <a href="./README.md">Ver documentação técnica</a>
           <a href="https://github.com/gabriel-hrs/busca-vagas">Abrir repositório</a>
         </div>
-        <div class="version">Login v6 · abre o app protegido no GitHub Pages</div>
+        <div class="version">Login v7 · abre o app protegido no GitHub Pages</div>
       </section>
     </main>
     <script src="./auth-config.js"></script>
@@ -414,14 +414,13 @@
       const supabaseKey = config.supabasePublishableKey || config.supabaseAnonKey;
       const supabase = configured ? createClient(config.supabaseUrl, supabaseKey) : null;
       const redirectTo = window.location.href.split(/[?#]/)[0];
-      const appUrl = config.appUrl || './app.html';
+      const configuredAppUrl = config.appUrl || './app.html';
+      const appUrl = window.location.hostname.endsWith('github.io') && /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(configuredAppUrl)
+        ? './app.html'
+        : configuredAppUrl;
       const goToApp = () => {
-        if (appUrl) {
-          setStatus(`Login confirmado. Abrindo tela principal em ${appUrl}...`);
-          window.setTimeout(() => window.location.assign(appUrl), 350);
-          return;
-        }
-        setStatus('Login confirmado, mas falta configurar appUrl em auth-config.js para abrir a tela principal de vagas.', true);
+        setStatus(`Login confirmado. Abrindo tela principal em ${appUrl}...`);
+        window.setTimeout(() => window.location.assign(appUrl), 350);
       };
 
       const setStatus = (message, isError = false) => {
