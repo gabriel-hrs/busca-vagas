@@ -1,6 +1,6 @@
 import type { ProfileId } from './model';
 
-export type SecurityContact = { type: 'sms' | 'email'; label: string; verified: boolean };
+export type SecurityContact = { type: 'email'; label: string; verified: boolean };
 export type SecurityAccount = { profileId: ProfileId; name: string; emailHash: string; contacts: SecurityContact[] };
 
 const USER_ID_HEADER = 'oai-authenticated-user-id';
@@ -15,17 +15,15 @@ export const securityAccounts: SecurityAccount[] = [
     name: 'Gabriel',
     emailHash: '3718db2f26e979e1340b4ae92844ed8cfdd1520212bd12340764259189d65f3d',
     contacts: [
-      { type: 'sms', label: '996****47', verified: true },
       { type: 'email', label: 'gabriel.henrique7087@g***.com', verified: true },
     ],
   },
   {
     profileId: 'milena',
     name: 'Milena',
-    emailHash: '6a34aee8d936194ab046e7302a680eb3e1b6cf69c18533932fe8e9b2c4ece617',
+    emailHash: 'd5a6101ef761af2034e6ce117b517f56bd0958eb55afc8a3ef733972f4163e39',
     contacts: [
-      { type: 'sms', label: '991****17', verified: true },
-      { type: 'email', label: 'milysilva42@g***.com', verified: true },
+      { type: 'email', label: 'pessoalmilena@o***.com', verified: true },
     ],
   },
 ];

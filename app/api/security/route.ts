@@ -9,7 +9,7 @@ export async function GET(request: Request) {
       accounts: securityAccounts.map(item => ({ profileId: item.profileId, name: item.name, contacts: item.contacts })),
       enforcement: {
         access: 'Produção restrita às contas autorizadas.',
-        secondFactor: 'Métodos cadastrados e mascarados. Envio real de códigos exige provedor de SMS/e-mail conectado.',
+        secondFactor: 'E-mails autorizados cadastrados e mascarados. Códigos de acesso são enviados por e-mail.',
       },
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (e) { return failure(e); }

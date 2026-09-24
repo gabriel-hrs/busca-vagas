@@ -36,11 +36,13 @@ test('external job links cannot execute scripts', () => {
 });
 test('security contacts are masked and authorized accounts are checked by email hash', async () => {
   const labels = securityAccounts.flatMap(account => account.contacts.map(contact => contact.label));
-  assert.ok(labels.includes('996****47'));
-  assert.ok(labels.includes('991****17'));
-  assert.ok(!labels.some(label => label.includes('996384747') || label.includes('991414617')));
+  assert.ok(labels.includes('gabriel.henrique7087@g***.com'));
+  assert.ok(labels.includes('pessoalmilena@o***.com'));
+  assert.ok(!labels.some(label => label.includes('996384747') || label.includes('991414617') || label.includes('milysilva42') || label.includes('Pessoalmilena@outlook.com')));
   const request = new Request('https://app.local/api/security', { headers: { 'oai-authenticated-user-id': 'user', 'oai-authenticated-user-email': 'gabriel.henrique7087@gmail.com' } });
   assert.equal((await authenticatedAccount(request)).account?.profileId, 'gabriel');
+  const milena = new Request('https://app.local/api/security', { headers: { 'oai-authenticated-user-id': 'user', 'oai-authenticated-user-email': 'Pessoalmilena@outlook.com' } });
+  assert.equal((await authenticatedAccount(milena)).account?.profileId, 'milena');
   const outsider = new Request('https://app.local/api/security', { headers: { 'oai-authenticated-user-id': 'user', 'oai-authenticated-user-email': 'outsider@example.com' } });
   await assert.rejects(() => authenticatedAccount(outsider), /ACCESS_DENIED/);
   const local = new Request('https://app.local/api/security');
