@@ -32,6 +32,7 @@ jobs:
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
+          APP_URL="${APP_URL:-./app.html}"
           cat > docs/auth-config.js <<CONFIG
           window.BuscaVagasAuthConfig = {
             supabaseUrl: '$SUPABASE_URL',

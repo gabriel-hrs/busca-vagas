@@ -390,7 +390,7 @@
           <a href="./README.md">Ver documentação técnica</a>
           <a href="https://github.com/gabriel-hrs/busca-vagas">Abrir repositório</a>
         </div>
-        <div class="version">Login v5 · abre a tela principal após o código</div>
+        <div class="version">Login v6 · abre o app protegido no GitHub Pages</div>
       </section>
     </main>
     <script src="./auth-config.js"></script>
@@ -414,9 +414,7 @@
       const supabaseKey = config.supabasePublishableKey || config.supabaseAnonKey;
       const supabase = configured ? createClient(config.supabaseUrl, supabaseKey) : null;
       const redirectTo = window.location.href.split(/[?#]/)[0];
-      const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname) || ['8080', '3000'].includes(window.location.port);
-      const defaultAppUrl = isLocal ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000/` : '';
-      const appUrl = config.appUrl || defaultAppUrl;
+      const appUrl = config.appUrl || './app.html';
       const goToApp = () => {
         if (appUrl) {
           setStatus(`Login confirmado. Abrindo tela principal em ${appUrl}...`);

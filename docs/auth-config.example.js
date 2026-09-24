@@ -4,5 +4,5 @@ window.BuscaVagasAuthConfig = {
   // URL da tela principal com vagas, currículo e compatibilidade.
   // Localmente, use 'http://localhost:3000/'.
   // Em produção, use a URL pública onde o app completo estiver hospedado.
-  appUrl: 'http://localhost:3000/',
+  appUrl: './app.html',
 };

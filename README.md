@@ -38,7 +38,7 @@ Crie estes Secrets em **GitHub > Settings > Secrets and variables > Actions**:
 
 - `SUPABASE_URL`: Project URL do Supabase.
 - `SUPABASE_PUBLISHABLE_KEY`: Publishable key do Supabase.
-- `APP_URL`: URL da tela completa com vagas, currículo e compatibilidade. Para teste local use `http://localhost:3000/`; em produção use o endereço onde o app com backend estiver publicado.
+- `APP_URL`: opcional. Se ficar vazio, o Pages abre `./app.html`, a versão protegida estática com vagas, currículo e compatibilidade. Use outro valor apenas se quiser redirecionar para um app com backend publicado em outro endereço.
 
 Para testar localmente a mesma home estática do GitHub Pages, copie o exemplo de configuração:
 
@@ -54,13 +54,7 @@ Depois rode:
 npm run pages:dev
 ```
 
-Acesse `http://localhost:8080/`. Para testar o fluxo completo localmente, deixe também o app principal rodando em outro terminal:
-
-```sh
-npm run dev
-```
-
-Com a home estática em `http://localhost:8080/`, após validar o código o login redireciona automaticamente para `http://localhost:3000/`, onde está a tela completa com vagas, currículo e compatibilidade.
+Acesse `http://localhost:8080/`. Após validar o código, o login abre `http://localhost:8080/app.html`, a versão protegida estática com vagas, currículo e compatibilidade. Se quiser testar a versão com backend local, rode `npm run dev` em outro terminal e configure `appUrl: 'http://localhost:3000/'` no `docs/auth-config.js` local.
 
 Para ativar o login por código de e-mail:
 
@@ -79,11 +73,11 @@ Para ativar o login por código de e-mail:
 
    Se o template usar `{{ .ConfirmationURL }}`, o e-mail vai mandar um link de login em vez do código/token para digitar na tela.
 6. Copie a **Project URL** e a **Publishable key** em **Project Settings > API Keys**.
-7. Para produção, salve `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `APP_URL` como Secrets do GitHub Actions. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
+7. Para produção, salve `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` como Secrets do GitHub Actions. `APP_URL` é opcional: deixe sem criar para abrir `./app.html` no próprio GitHub Pages, ou crie se quiser redirecionar para outro app publicado. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
 
-O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`. Localmente, se `appUrl` estiver vazio, o redirecionamento usa `http://localhost:3000/`. SMS fica desativado até configurar um provedor de SMS.
+O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`; por padrão, ela é `./app.html`. SMS fica desativado até configurar um provedor de SMS.
 
-O GitHub Pages continua não executando banco D1 nem rotas `/api`. Ele hospeda a tela de login; a tela completa com vagas, currículo, coleta e endpoints privados precisa estar em um endereço com backend, configurado como `APP_URL` nos Secrets do GitHub Actions ou como `appUrl` em `docs/auth-config.js` local.
+O GitHub Pages continua não executando banco D1 nem rotas `/api`. Por isso, `docs/app.html` é uma versão estática protegida: currículo e vagas salvas ficam no navegador, e a coleta automática depende de APIs públicas acessíveis pelo browser. Para recursos com banco e endpoints privados, publique também a versão com backend e configure `APP_URL` para ela.
 
 ## Como usar
 
