@@ -30,9 +30,60 @@ npm run build
 
 ## GitHub Pages
 
-A raiz do repositório contém um `index.html` estático para que `https://gabriel-hrs.github.io/busca-vagas/` abra uma capa de login em vez do README. Essa capa não executa autenticação real, coleta de vagas, banco D1 nem rotas `/api`; o GitHub Pages só serve arquivos estáticos.
+A pasta `docs/` contém o `index.html` estático para que `https://gabriel-hrs.github.io/busca-vagas/` abra uma tela de acesso em vez do README. Como o GitHub Pages só serve HTML, CSS e JavaScript, o envio e a validação de código usam Supabase Auth direto no navegador.
 
-Use o GitHub Pages como página pública de entrada/documentação. Para usar o Busca Vagas completo com login seguro, publique a aplicação em um ambiente com backend e autenticação privada.
+No GitHub, configure **Settings > Pages > Build and deployment > Source** como **GitHub Actions**. O workflow `.github/workflows/pages.yml` gera `docs/auth-config.js` durante o deploy usando Secrets do repositório.
+
+Crie estes Secrets em **GitHub > Settings > Secrets and variables > Actions**:
+
+- `SUPABASE_URL`: Project URL do Supabase.
+- `SUPABASE_PUBLISHABLE_KEY`: Publishable key do Supabase.
+- `APP_URL`: URL da tela completa com vagas, currículo e compatibilidade. Para teste local use `http://localhost:3000/`; em produção use o endereço onde o app com backend estiver publicado.
+
+Para testar localmente a mesma home estática do GitHub Pages, copie o exemplo de configuração:
+
+```sh
+cp docs/auth-config.example.js docs/auth-config.js
+```
+
+Edite `docs/auth-config.js` localmente. Esse arquivo está no `.gitignore` e não deve ser commitado.
+
+Depois rode:
+
+```sh
+npm run pages:dev
+```
+
+Acesse `http://localhost:8080/`. Para testar o fluxo completo localmente, deixe também o app principal rodando em outro terminal:
+
+```sh
+npm run dev
+```
+
+Com a home estática em `http://localhost:8080/`, após validar o código o login redireciona automaticamente para `http://localhost:3000/`, onde está a tela completa com vagas, currículo e compatibilidade.
+
+Para ativar o login por código de e-mail:
+
+1. Crie um projeto no Supabase.
+2. Em **Authentication > Providers > Email**, mantenha o provedor de e-mail ativo.
+3. Em **Authentication > Users**, crie manualmente os usuários autorizados.
+4. Em **Authentication > URL Configuration**, configure a URL do site como `https://gabriel-hrs.github.io/busca-vagas/`. Para teste local, adicione `http://localhost:8080/` em **Redirect URLs**.
+5. Em **Authentication > Emails > Templates**, abra o template **Magic Link** e troque o corpo para incluir o código numérico. Exemplo mínimo:
+
+   ```html
+   <h2>Seu código de acesso</h2>
+   <p>Digite este código no Busca Vagas:</p>
+   <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">{{ .Token }}</p>
+   <p>Este código expira em breve e só pode ser usado uma vez.</p>
+   ```
+
+   Se o template usar `{{ .ConfirmationURL }}`, o e-mail vai mandar um link de login em vez do código/token para digitar na tela.
+6. Copie a **Project URL** e a **Publishable key** em **Project Settings > API Keys**.
+7. Para produção, salve `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `APP_URL` como Secrets do GitHub Actions. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
+
+O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`. Localmente, se `appUrl` estiver vazio, o redirecionamento usa `http://localhost:3000/`. SMS fica desativado até configurar um provedor de SMS.
+
+O GitHub Pages continua não executando banco D1 nem rotas `/api`. Ele hospeda a tela de login; a tela completa com vagas, currículo, coleta e endpoints privados precisa estar em um endereço com backend, configurado como `APP_URL` nos Secrets do GitHub Actions ou como `appUrl` em `docs/auth-config.js` local.
 
 ## Como usar
 

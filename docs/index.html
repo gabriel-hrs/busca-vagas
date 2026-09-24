@@ -157,7 +157,7 @@
         text-transform: uppercase;
       }
 
-      select, button {
+      select, input, button {
         width: 100%;
         min-height: 48px;
         border: 1px solid var(--line);
@@ -165,10 +165,14 @@
         font: inherit;
       }
 
-      select {
+      select, input {
         padding: 0 14px;
         color: var(--text);
         background: #0f172a;
+      }
+
+      input::placeholder {
+        color: #64748b;
       }
 
       button {
@@ -189,8 +193,23 @@
         transform: translateY(0);
       }
 
-      .field + .field {
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.56;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .field + .field, .code-step {
         margin-top: 18px;
+      }
+
+      .code-step {
+        display: none;
+      }
+
+      .code-step.is-visible {
+        display: block;
       }
 
       .methods {
@@ -236,6 +255,11 @@
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
       }
 
+      .method:has(input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
       .notice, .status {
         margin-top: 18px;
         padding: 14px;
@@ -261,11 +285,23 @@
         display: block;
       }
 
+      .status.is-error {
+        border-color: rgba(248, 113, 113, 0.34);
+        color: #fecaca;
+        background: rgba(248, 113, 113, 0.08);
+      }
+
       .links {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
         margin-top: 20px;
+      }
+
+      .version {
+        margin-top: 12px;
+        color: #64748b;
+        font-size: 12px;
       }
 
       a {
@@ -305,7 +341,7 @@
 
       <section class="card" aria-labelledby="login-title">
         <h2 id="login-title">Receber código de acesso</h2>
-        <p>Escolha a pessoa autorizada e o canal para receber o código. Os dados ficam mascarados nesta página pública.</p>
+        <p>Escolha a pessoa autorizada, informe o e-mail cadastrado e receba um código temporário pelo Supabase Auth.</p>
 
         <div class="login-box">
           <div class="field">
@@ -317,59 +353,161 @@
           </div>
 
           <div class="field">
+            <label for="email">E-mail autorizado</label>
+            <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="Digite o e-mail cadastrado" />
+          </div>
+
+          <div class="field">
             <label>Método de envio</label>
             <div class="methods" aria-label="Métodos de dupla autenticação cadastrados">
               <label class="method">
-                <input type="radio" name="delivery" checked />
-                <span><strong>SMS</strong><span id="sms-target">Enviar para 996****47</span></span>
+                <input type="radio" name="delivery" value="email" checked />
+                <span><strong>E-mail</strong><span id="email-target">Enviar código por e-mail</span></span>
               </label>
               <label class="method">
-                <input type="radio" name="delivery" />
-                <span><strong>E-mail</strong><span id="email-target">Enviar para g***@gmail.com</span></span>
+                <input type="radio" name="delivery" value="sms" disabled />
+                <span><strong>SMS</strong><span id="sms-target">Disponível depois com provedor de SMS</span></span>
               </label>
             </div>
           </div>
 
           <button id="send-code" type="button">Enviar código de acesso</button>
+
+          <div id="code-step" class="code-step">
+            <label for="code">Código recebido</label>
+            <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Cole o código do e-mail" />
+            <button id="verify-code" type="button">Validar código e entrar</button>
+          </div>
+
           <div id="status" class="status" role="status" aria-live="polite"></div>
         </div>
 
         <div class="notice">
-          Esta URL do GitHub Pages é uma capa estática. O login seguro, banco de dados, vagas salvas e APIs precisam rodar na publicação privada do app.
+          Esta página roda no GitHub Pages. O envio e a validação do código acontecem no Supabase Auth; cadastre somente e-mails autorizados no projeto Supabase.
         </div>
 
         <div class="links">
           <a href="./README.md">Ver documentação técnica</a>
           <a href="https://github.com/gabriel-hrs/busca-vagas">Abrir repositório</a>
         </div>
+        <div class="version">Login v5 · abre a tela principal após o código</div>
       </section>
     </main>
-    <script>
+    <script src="./auth-config.js"></script>
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const config = window.BuscaVagasAuthConfig || {};
+      const configured =
+        config.supabaseUrl &&
+        (config.supabasePublishableKey || config.supabaseAnonKey) &&
+        !config.supabaseUrl.includes('COLE_AQUI') &&
+        !(config.supabasePublishableKey || config.supabaseAnonKey).includes('COLE_AQUI');
+
       const account = document.querySelector('#account');
-      const smsTarget = document.querySelector('#sms-target');
-      const emailTarget = document.querySelector('#email-target');
+      const email = document.querySelector('#email');
       const sendCode = document.querySelector('#send-code');
+      const verifyCode = document.querySelector('#verify-code');
+      const code = document.querySelector('#code');
+      const codeStep = document.querySelector('#code-step');
       const status = document.querySelector('#status');
-      const targets = {
-        g: { label: 'Pessoa G', sms: 'Enviar para 996****47', email: 'Enviar para g***@gmail.com' },
-        m: { label: 'Pessoa M', sms: 'Enviar para 991****17', email: 'Enviar para m***@gmail.com' },
+      const supabaseKey = config.supabasePublishableKey || config.supabaseAnonKey;
+      const supabase = configured ? createClient(config.supabaseUrl, supabaseKey) : null;
+      const redirectTo = window.location.href.split(/[?#]/)[0];
+      const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname) || ['8080', '3000'].includes(window.location.port);
+      const defaultAppUrl = isLocal ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000/` : '';
+      const appUrl = config.appUrl || defaultAppUrl;
+      const goToApp = () => {
+        if (appUrl) {
+          setStatus(`Login confirmado. Abrindo tela principal em ${appUrl}...`);
+          window.setTimeout(() => window.location.assign(appUrl), 350);
+          return;
+        }
+        setStatus('Login confirmado, mas falta configurar appUrl em auth-config.js para abrir a tela principal de vagas.', true);
       };
 
-      const selectedTarget = () => targets[account?.value] || targets.g;
+      const setStatus = (message, isError = false) => {
+        status.textContent = message;
+        status.classList.toggle('is-error', isError);
+        status.classList.add('is-visible');
+      };
+
+      const setLoading = (loading) => {
+        sendCode.disabled = loading || !configured;
+        verifyCode.disabled = loading || !configured;
+      };
+
+      if (!configured) {
+        setLoading(false);
+        setStatus('Configure SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY nos Secrets do GitHub ou crie docs/auth-config.js localmente para ativar o envio real de código.', true);
+      } else {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          goToApp();
+        }
+      }
 
       account?.addEventListener('change', () => {
-        const selected = selectedTarget();
-        smsTarget.textContent = selected.sms;
-        emailTarget.textContent = selected.email;
         status?.classList.remove('is-visible');
+        codeStep?.classList.remove('is-visible');
       });
 
-      sendCode?.addEventListener('click', () => {
-        const selected = selectedTarget();
-        const delivery = document.querySelector('input[name="delivery"]:checked')?.closest('.method')?.querySelector('strong')?.textContent || 'SMS';
-        const target = delivery === 'E-mail' ? selected.email.replace('Enviar para ', '') : selected.sms.replace('Enviar para ', '');
-        status.textContent = `Solicitação preparada para ${selected.label} via ${delivery}: ${target}. Nesta URL pública do GitHub Pages o envio real depende da versão privada com backend.`;
-        status.classList.add('is-visible');
+      sendCode?.addEventListener('click', async () => {
+        if (!configured) return;
+
+        const emailValue = email.value.trim().toLowerCase();
+        if (!emailValue) {
+          setStatus('Digite o e-mail cadastrado antes de solicitar o código.', true);
+          email.focus();
+          return;
+        }
+
+        setLoading(true);
+        const { error } = await supabase.auth.signInWithOtp({
+          email: emailValue,
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: redirectTo,
+          },
+        });
+        setLoading(false);
+
+        if (error) {
+          const detail = [error.status, error.code, error.message].filter(Boolean).join(' · ');
+          setStatus(`Não foi possível enviar o código. Detalhe do Supabase: ${detail || 'erro desconhecido'}. Confira se o e-mail está cadastrado em Authentication > Users e se o provedor Email está ativo.`, true);
+          return;
+        }
+
+        codeStep.classList.add('is-visible');
+        code.focus();
+        setStatus(`Código enviado para o e-mail informado da ${account.options[account.selectedIndex].text}.`);
+      });
+
+      verifyCode?.addEventListener('click', async () => {
+        if (!configured) return;
+
+        const emailValue = email.value.trim().toLowerCase();
+        const token = code.value.trim().replace(/\D/g, '');
+        if (!emailValue || !token) {
+          setStatus('Digite o e-mail e o código recebido.', true);
+          return;
+        }
+
+        setLoading(true);
+        const { error } = await supabase.auth.verifyOtp({
+          email: emailValue,
+          token,
+          type: 'email',
+        });
+        setLoading(false);
+
+        if (error) {
+          setStatus('Código inválido ou expirado. Solicite um novo código e tente novamente.', true);
+          return;
+        }
+
+        setStatus('Login confirmado. Redirecionando para a home...');
+        goToApp();
       });
     </script>
   </body>
