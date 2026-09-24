@@ -175,6 +175,16 @@
         color: #64748b;
       }
 
+      .helper {
+        margin: 8px 0 0;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.35;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 700;
+      }
+
       button {
         margin-top: 18px;
         color: #07111f;
@@ -253,11 +263,6 @@
         border-color: rgba(56, 189, 248, 0.72);
         background: rgba(14, 165, 233, 0.12);
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
-      }
-
-      .method:has(input:disabled) {
-        cursor: not-allowed;
-        opacity: 0.58;
       }
 
       .notice, .status {
@@ -352,21 +357,17 @@
             </select>
           </div>
 
-          <div class="field">
+          <div id="email-field" class="field">
             <label for="email">E-mail autorizado</label>
             <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="Digite o e-mail cadastrado" />
           </div>
 
           <div class="field">
             <label>Método de envio</label>
-            <div class="methods" aria-label="Métodos de dupla autenticação cadastrados">
+            <div class="methods" aria-label="Método de autenticação">
               <label class="method">
                 <input type="radio" name="delivery" value="email" checked />
                 <span><strong>E-mail</strong><span id="email-target">Enviar código por e-mail</span></span>
-              </label>
-              <label class="method">
-                <input type="radio" name="delivery" value="sms" disabled />
-                <span><strong>SMS</strong><span id="sms-target">Disponível depois com provedor de SMS</span></span>
               </label>
             </div>
           </div>
@@ -390,7 +391,7 @@
           <a href="./README.md">Ver documentação técnica</a>
           <a href="https://github.com/gabriel-hrs/busca-vagas">Abrir repositório</a>
         </div>
-        <div class="version">Login v7 · abre o app protegido no GitHub Pages</div>
+        <div class="version">Login v8 · código por e-mail</div>
       </section>
     </main>
     <script src="./auth-config.js"></script>
@@ -462,10 +463,7 @@
         setLoading(true);
         const { error } = await supabase.auth.signInWithOtp({
           email: emailValue,
-          options: {
-            shouldCreateUser: false,
-            emailRedirectTo: redirectTo,
-          },
+          options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
         });
         setLoading(false);
 
@@ -477,7 +475,7 @@
 
         codeStep.classList.add('is-visible');
         code.focus();
-        setStatus(`Código enviado para o e-mail informado da ${account.options[account.selectedIndex].text}.`);
+        setStatus(`Código enviado por e-mail para a ${account.options[account.selectedIndex].text}.`);
       });
 
       verifyCode?.addEventListener('click', async () => {
@@ -486,7 +484,7 @@
         const emailValue = email.value.trim().toLowerCase();
         const token = code.value.trim().replace(/\D/g, '');
         if (!emailValue || !token) {
-          setStatus('Digite o e-mail e o código recebido.', true);
+          setStatus('Digite o e-mail autorizado e o código recebido.', true);
           return;
         }
 

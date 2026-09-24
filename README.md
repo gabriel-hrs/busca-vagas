@@ -75,7 +75,7 @@ Para ativar o login por código de e-mail:
 6. Copie a **Project URL** e a **Publishable key** em **Project Settings > API Keys**.
 7. Para produção, salve `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` como Secrets do GitHub Actions. `APP_URL` é opcional: deixe sem criar para abrir `./app.html` no próprio GitHub Pages, ou crie se quiser redirecionar para outro app publicado. Se ele estiver como `http://localhost:3000/`, o workflow troca automaticamente para `./app.html`. Para teste local, copie `docs/auth-config.example.js` para `docs/auth-config.js` e preencha `supabaseUrl`, `supabasePublishableKey` e `appUrl`. A Publishable key é pública e própria para frontend; não coloque Secret key no GitHub Pages.
 
-O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`; por padrão, ela é `./app.html`. SMS fica desativado até configurar um provedor de SMS.
+O formulário usa `shouldCreateUser: false`, então ele não cria conta nova a partir da página pública. O código só deve ser enviado para e-mails já cadastrados no Supabase. Após validar o token, `index.html` redireciona direto para a tela principal de vagas configurada em `appUrl`; por padrão, ela é `./app.html`.
 
 O GitHub Pages continua não executando banco D1 nem rotas `/api`. Por isso, `docs/app.html` é uma versão estática protegida: currículo e vagas salvas ficam no navegador, e a coleta automática depende de APIs públicas acessíveis pelo browser. Para recursos com banco e endpoints privados, publique também a versão com backend e configure `APP_URL` para ela.
 
@@ -119,7 +119,7 @@ Dados pessoais são separados por identidade autenticada do Sites e perfil selec
 
 ## Segurança de acesso
 
-O app mantém uma lista de contas autorizadas por hash SHA-256 do e-mail autenticado, sem exibir e-mail ou telefone completos na interface. A tela **Segurança** mostra apenas métodos mascarados, como `996****47` e e-mails parcialmente ocultos. O envio real de códigos por SMS/e-mail não está embutido: antes de abrir o acesso público, conecte um provedor autorizado como Twilio, Resend, SendGrid ou equivalente e faça a verificação do código no servidor.
+O app mantém uma lista de contas autorizadas por hash SHA-256 do e-mail autenticado, sem exibir e-mail completo na interface. A tela de login usa código por e-mail via Supabase Auth; não há envio por SMS nesta versão.
 
 Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed. Currículos inseridos localmente não são incluídos no código nem enviados na publicação. A versão adaptada preserva o currículo-base; alterações feitas no editor de exportação ficam apenas no arquivo baixado.
 
