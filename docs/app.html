@@ -111,6 +111,18 @@
       .modal-head { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
       .close { border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: transparent; width: 38px; height: 38px; }
       .resume-box { min-height: 280px; padding: 14px; line-height: 1.55; }
+      .file-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
+      .file-row input { display: none; }
+      .file-row .button { width: auto; min-width: 190px; display: flex; align-items: center; }
+      .file-note { color: var(--muted); font-size: 13px; line-height: 1.45; }
+      .resume-current { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(2, 6, 23, .34); }
+      .resume-current strong { display: block; margin-bottom: 4px; }
+      .resume-current small { color: var(--muted); }
+      .history-list { display: grid; gap: 10px; margin-top: 16px; }
+      .history-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(2, 6, 23, .26); }
+      .history-item strong { display: block; }
+      .history-item small { color: var(--muted); }
+      .history-actions { display: flex; flex-wrap: wrap; gap: 8px; }
       .empty { padding: 32px; text-align: center; color: var(--muted); }
       @media (max-width: 1000px) {
         .shell { grid-template-columns: 1fr; }
@@ -183,9 +195,16 @@
         <section id="resume-view" class="hidden">
           <div class="panel" style="padding:24px">
             <h2>Meu currículo</h2>
-            <p style="color:var(--muted)">Cole seu currículo-base. Ele fica salvo somente neste navegador.</p>
-            <textarea id="resume" class="resume-box" placeholder="Cole aqui seu currículo, experiências, competências e formação..."></textarea>
-            <div style="display:flex;gap:12px;margin-top:14px"><button id="save-resume" class="button">Salvar currículo</button><button id="clear-resume" class="button secondary">Limpar</button></div>
+            <p style="color:var(--muted)">Importe seu currículo em PDF ou TXT. Ele fica salvo somente neste navegador e pode ser usado para gerar versões otimizadas por vaga.</p>
+            <div class="file-row">
+              <label class="button secondary" for="resume-file">Importar PDF/TXT</label>
+              <input id="resume-file" type="file" accept=".pdf,.txt,application/pdf,text/plain" />
+              <span id="file-status" class="file-note">PDFs são lidos no navegador, sem enviar o arquivo para servidor.</span>
+            </div>
+            <div id="resume-current" class="resume-current hidden"></div>
+            <h3 style="margin-top:26px">Histórico de versões</h3>
+            <p style="color:var(--muted)">Veja os currículos importados e restaure uma versão anterior quando precisar.</p>
+            <div id="resume-history" class="history-list"></div>
           </div>
         </section>
 
@@ -217,6 +236,7 @@
       if (!data.session) window.location.replace('./index.html');
 
       const skills = ['React','TypeScript','JavaScript','CSS','HTML','Next.js','Node.js','Figma','UX','UI','Pesquisa','Prototipação','Acessibilidade','Design System'];
+      let selectedJob = null;
       const profiles = {
         gabriel: { name:'Pessoa G', role:'Front-end & Full Stack', wants:['Front-end','Full Stack'], skills:['React','TypeScript','JavaScript','CSS','HTML','Node.js','Next.js'] },
         milena: { name:'Pessoa M', role:'UI/UX Designer · Júnior', wants:['UI/UX'], skills:['Figma','UX','UI','Pesquisa','Prototipação','Acessibilidade','Design System'] },
@@ -232,6 +252,10 @@
         set profile(v){ localStorage.setItem('busca-vagas-static-profile', v); },
         get resume(){ return localStorage.getItem(`busca-vagas-static-resume-${this.profile}`) || ''; },
         set resume(v){ localStorage.setItem(`busca-vagas-static-resume-${this.profile}`, v); },
+        get resumeMeta(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-resume-meta-${this.profile}`) || 'null'); },
+        set resumeMeta(v){ v ? localStorage.setItem(`busca-vagas-static-resume-meta-${this.profile}`, JSON.stringify(v)) : localStorage.removeItem(`busca-vagas-static-resume-meta-${this.profile}`); },
+        get resumeHistory(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-resume-history-${this.profile}`) || '[]'); },
+        set resumeHistory(v){ localStorage.setItem(`busca-vagas-static-resume-history-${this.profile}`, JSON.stringify(v.slice(0, 10))); },
         get saved(){ return JSON.parse(localStorage.getItem('busca-vagas-static-saved') || '{}'); },
         set saved(v){ localStorage.setItem('busca-vagas-static-saved', JSON.stringify(v)); },
       };
@@ -240,15 +264,42 @@
 
       const $ = (id) => document.getElementById(id);
       const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+      const formatDate = (value) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+      const resumeSummary = (text) => `${(text || '').length.toLocaleString('pt-BR')} caracteres extraídos`;
       const activeProfile = () => profiles[store.profile];
       const pool = () => [...demoJobs, ...remoteJobs];
       const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role));
       const resumeText = () => norm(store.resume + ' ' + activeProfile().skills.join(' '));
-      const assess = (job) => {
+      const assessDetails = (job) => {
         const reqs = job.tags.filter(t => skills.includes(t));
-        if (!reqs.length || !resumeText().trim()) return null;
+        if (!reqs.length || !resumeText().trim()) return { score: null, matched: [], missing: reqs };
         const matched = reqs.filter(t => resumeText().includes(norm(t)) || activeProfile().skills.map(norm).includes(norm(t)));
-        return Math.round((matched.length / reqs.length) * 100);
+        return { score: Math.round((matched.length / reqs.length) * 100), matched, missing: reqs.filter(t => !matched.includes(t)) };
+      };
+      const assess = (job) => assessDetails(job).score;
+      const optimizedResumeText = (job) => {
+        const profile = activeProfile();
+        const details = assessDetails(job);
+        const base = store.resume.trim() || 'Importe seu currículo em Meu currículo para gerar uma versão mais completa.';
+        const matched = details.matched.length ? details.matched.join(', ') : 'competências descritas no currículo-base';
+        const missing = details.missing.length ? `
+
+Pontos para revisar antes de enviar: ${details.missing.join(', ')}. Inclua somente se tiver experiência real.` : '';
+        return `CURRÍCULO OTIMIZADO — ${profile.name}
+
+Objetivo
+Candidatura para ${job.title} na ${job.company}.
+
+Resumo direcionado
+Profissional com interesse em oportunidades de ${job.role}, com destaque para ${matched}.
+
+Competências alinhadas à vaga
+${job.tags.map(tag => `• ${tag}`).join('\n')}
+${missing}
+
+Currículo-base preservado
+${base}`;
       };
       const filteredJobs = () => {
         const q = norm($('search').value);
@@ -273,7 +324,7 @@
         $(`${currentView}-view`).classList.remove('hidden');
         document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.view === currentView));
         $('view-title').textContent = currentView === 'jobs' ? 'Explorar vagas' : currentView === 'saved' ? 'Vagas salvas' : currentView === 'resume' ? 'Meu currículo' : 'Fontes de vagas';
-        $('resume').value = store.resume;
+        renderResumePanel();
         $('resume-callout').classList.toggle('hidden', !!store.resume.trim());
         const jobs = filteredJobs();
         $('stat-total').textContent = relevant().length.toString().padStart(2,'0');
@@ -285,14 +336,182 @@
         $('saved-jobs').innerHTML = savedJobs.map(card).join('');
         $('saved-copy').textContent = savedJobs.length ? `${savedJobs.length} vaga(s) salvas.` : 'As vagas que você salvar aparecem aqui.';
       }
+      function saveResumeVersion(file, text) {
+        const now = new Date().toISOString();
+        const item = {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: file.name || 'curriculo.txt',
+          type: file.type || 'text/plain',
+          size: file.size || text.length,
+          importedAt: now,
+          text,
+        };
+        store.resume = text;
+        store.resumeMeta = item;
+        store.resumeHistory = [item, ...store.resumeHistory.filter(version => version.text !== text || version.name !== item.name)];
+        return item;
+      }
+      function renderResumePanel() {
+        const current = store.resumeMeta;
+        const currentText = store.resume;
+        $('resume-current').classList.toggle('hidden', !currentText.trim());
+        if (currentText.trim()) {
+          const title = current?.name || 'Currículo importado';
+          const date = current?.importedAt ? formatDate(current.importedAt) : 'data não registrada';
+          $('resume-current').innerHTML = `<div><strong>${escapeHtml(title)}</strong><small>Versão ativa · ${date} · ${resumeSummary(currentText)}</small></div><div class="history-actions"><button id="preview-current-resume" class="button secondary" type="button">Visualizar arquivo</button><button id="clear-current-resume" class="button secondary" type="button">Limpar versão ativa</button></div>`;
+        }
+        const history = store.resumeHistory;
+        $('resume-history').innerHTML = history.length ? history.map(item => `<div class="history-item"><div><strong>${escapeHtml(item.name)}</strong><small>${formatDate(item.importedAt)} · ${resumeSummary(item.text)}</small></div><div class="history-actions"><button class="button secondary" type="button" data-preview-resume="${escapeHtml(item.id)}">Visualizar</button><button class="button secondary" type="button" data-restore-resume="${escapeHtml(item.id)}">Restaurar</button></div></div>`).join('') : '<div class="history-item"><div><strong>Nenhuma versão importada ainda.</strong><small>Importe um PDF ou TXT para começar o histórico.</small></div></div>';
+      }
+      function previewResume(title, text) {
+        $('modal-company').textContent = 'Meu currículo';
+        $('modal-title').textContent = title;
+        $('modal-body').innerHTML = `<p style="color:var(--muted)">Visualização do texto extraído do arquivo importado.</p><textarea class="resume-box" readonly>${escapeHtml(text)}</textarea>`;
+        $('dialog').classList.add('open');
+      }
+      function decodePdfLiteralString(value) {
+        const chars = [];
+        for (let i = 0; i < value.length; i += 1) {
+          const char = value[i];
+          if (char !== '\\') { chars.push(char); continue; }
+          const next = value[++i];
+          if (next === 'n') chars.push('\n');
+          else if (next === 'r') chars.push('\r');
+          else if (next === 't') chars.push('\t');
+          else if (next === 'b') chars.push('\b');
+          else if (next === 'f') chars.push('\f');
+          else if (['\\', '(', ')'].includes(next)) chars.push(next);
+          else if (/[0-7]/.test(next || '')) {
+            let octal = next;
+            for (let count = 0; count < 2 && /[0-7]/.test(value[i + 1] || ''); count += 1) octal += value[++i];
+            chars.push(String.fromCharCode(parseInt(octal, 8)));
+          } else if (next) chars.push(next);
+        }
+        return chars.join('').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+      }
+      function extractActualTextFromPdfBytes(bytes) {
+        const raw = new TextDecoder('latin1').decode(bytes);
+        const parts = [];
+        let cursor = 0;
+        while (cursor < raw.length) {
+          const marker = raw.indexOf('/ActualText', cursor);
+          if (marker === -1) break;
+          let open = raw.indexOf('(', marker);
+          if (open === -1) break;
+          let depth = 1;
+          let escaped = false;
+          let index = open + 1;
+          for (; index < raw.length; index += 1) {
+            const char = raw[index];
+            if (escaped) { escaped = false; continue; }
+            if (char === '\\') { escaped = true; continue; }
+            if (char === '(') depth += 1;
+            if (char === ')') depth -= 1;
+            if (depth === 0) break;
+          }
+          if (depth === 0) {
+            const text = decodePdfLiteralString(raw.slice(open + 1, index)).replace(/\s+/g, ' ').trim();
+            if (text && !parts.includes(text)) parts.push(text);
+            cursor = index + 1;
+          } else {
+            cursor = open + 1;
+          }
+        }
+        return parts.join('\n\n').trim();
+      }
+      function loadTesseract() {
+        if (window.Tesseract) return Promise.resolve(window.Tesseract);
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+          script.async = true;
+          script.onload = () => resolve(window.Tesseract);
+          script.onerror = () => reject(new Error('Não foi possível carregar o OCR.'));
+          document.head.appendChild(script);
+        });
+      }
+      async function extractPdfTextWithOcr(pdf, onProgress = () => {}) {
+        const Tesseract = await loadTesseract();
+        const pages = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          onProgress(`Executando OCR da página ${pageNumber} de ${pdf.numPages}...`);
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvasContext: context, viewport }).promise;
+          const result = await Tesseract.recognize(canvas, 'por+eng');
+          const text = result?.data?.text?.replace(/\s+/g, ' ').trim();
+          if (text) pages.push(text);
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+        return pages.join('\n\n').trim();
+      }
       function openJob(id) {
         const job = pool().find(j => j.id === id);
         if (!job) return;
+        selectedJob = job;
         const score = assess(job);
         $('modal-company').textContent = job.company;
         $('modal-title').textContent = job.title;
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo adaptado</h3><textarea class="resume-box">Objetivo: candidatura para ${job.title} na ${job.company}.\n\nCompetências em destaque: ${job.tags.join(', ')}.\n\n${store.resume || 'Cole seu currículo em Meu currículo para gerar uma versão mais completa.'}</textarea>`;
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">Revise antes de enviar. O texto preserva o currículo-base e não inventa experiências.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;gap:12px;margin-top:14px"><button id="download-resume-pdf" class="button">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div>`;
         $('dialog').classList.add('open');
+      }
+      async function extractPdfText(file, onProgress = () => {}) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const actualTextFallback = extractActualTextFromPdfBytes(bytes);
+        if (actualTextFallback.length > 80) return actualTextFallback;
+        const pdfjs = await import('https://esm.sh/pdfjs-dist@4.10.38');
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs';
+        const loadingTask = pdfjs.getDocument({
+          data: bytes.slice(),
+          disableFontFace: true,
+          useSystemFonts: false,
+          stopAtErrors: false,
+        });
+        const pdf = await loadingTask.promise;
+        const pages = [];
+        const pageErrors = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          try {
+            const page = await pdf.getPage(pageNumber);
+            const content = await page.getTextContent({ disableNormalization: false, includeMarkedContent: false });
+            const text = content.items.map(item => item.str || '').join(' ').replace(/\s+/g, ' ').trim();
+            if (text) pages.push(text);
+          } catch (error) {
+            pageErrors.push(pageNumber);
+          }
+        }
+        const text = pages.join('\n\n').trim() || actualTextFallback;
+        if (text) return text;
+        onProgress('PDF sem texto extraível. Tentando OCR local...');
+        const ocrText = await extractPdfTextWithOcr(pdf, onProgress);
+        if (!ocrText) {
+          throw new Error(pageErrors.length ? `Não foi possível extrair texto das páginas ${pageErrors.join(', ')}.` : 'PDF sem texto extraível.');
+        }
+        return ocrText;
+      }
+      async function downloadOptimizedPdf() {
+        const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
+        const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
+        const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+        const margin = 48;
+        const width = pdf.internal.pageSize.getWidth() - margin * 2;
+        const height = pdf.internal.pageSize.getHeight();
+        const lines = pdf.splitTextToSize(text, width);
+        let y = margin;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(11);
+        for (const line of lines) {
+          if (y > height - margin) { pdf.addPage(); y = margin; }
+          pdf.text(line, margin, y);
+          y += 16;
+        }
+        const name = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
+        pdf.save(name);
       }
       async function loadRemote() {
         try {
@@ -309,11 +528,37 @@
         if (target.dataset.profile) { store.profile = target.dataset.profile; currentView = 'jobs'; render(); }
         if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; saved[key] = !saved[key]; store.saved = saved; render(); }
         if (target.dataset.open) openJob(target.dataset.open);
+        if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
+        if (target.id === 'copy-resume') navigator.clipboard?.writeText($('optimized-resume')?.value || '');
+        if (target.id === 'preview-current-resume') previewResume(store.resumeMeta?.name || 'Currículo importado', store.resume);
+        if (target.id === 'clear-current-resume') { store.resume = ''; store.resumeMeta = null; render(); }
+        if (target.dataset.previewResume) {
+          const item = store.resumeHistory.find(version => version.id === target.dataset.previewResume);
+          if (item) previewResume(item.name, item.text);
+        }
+        if (target.dataset.restoreResume) {
+          const item = store.resumeHistory.find(version => version.id === target.dataset.restoreResume);
+          if (item) { store.resume = item.text; store.resumeMeta = item; $('file-status').textContent = `Versão restaurada: ${item.name}`; render(); }
+        }
       });
       $('profile').addEventListener('change', e => { store.profile = e.target.value; render(); });
       ['search','mode','level','sort'].forEach(id => $(id).addEventListener('input', render));
-      $('save-resume').addEventListener('click', () => { store.resume = $('resume').value; currentView = 'jobs'; render(); });
-      $('clear-resume').addEventListener('click', () => { store.resume = ''; $('resume').value = ''; render(); });
+      $('resume-file').addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        $('file-status').textContent = 'Lendo arquivo...';
+        try {
+          const text = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf') ? await extractPdfText(file, message => { $('file-status').textContent = message; }) : await file.text();
+          if (!text.trim()) throw new Error('empty file');
+          saveResumeVersion(file, text);
+          $('file-status').textContent = `Currículo importado: ${file.name}`;
+          event.target.value = '';
+          render();
+        } catch (error) {
+          console.error('Erro ao importar currículo:', error);
+          $('file-status').textContent = error?.message?.includes('OCR') ? 'Não foi possível carregar o OCR. Confira a internet ou use TXT.' : 'Não foi possível ler o arquivo. Tente outro PDF pesquisável, aguarde o OCR ou use TXT.';
+        }
+      });
       $('sync').addEventListener('click', loadRemote);
       $('close').addEventListener('click', () => $('dialog').classList.remove('open'));
       $('dialog').addEventListener('click', e => { if (e.target.id === 'dialog') $('dialog').classList.remove('open'); });

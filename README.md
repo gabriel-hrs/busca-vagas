@@ -82,7 +82,7 @@ O GitHub Pages continua não executando banco D1 nem rotas `/api`. Por isso, `do
 ## Como usar
 
 1. Selecione seu Perfil e abra **Meu currículo**.
-2. Cole o texto do currículo ou importe um `.txt`; informe apenas competências reais.
+2. Importe seu currículo em `.pdf` ou `.txt`; informe apenas competências reais no arquivo original.
 3. Clique em **Atualizar vagas** para coletar oportunidades das fontes automáticas disponíveis.
 4. Para vagas de outros portais, use **Adicionar vaga** com link e descrição.
 5. Abra a oportunidade para ver a compatibilidade, salvar, anotar e acompanhar a candidatura.
@@ -105,11 +105,17 @@ Os anúncios de demonstração são fictícios e identificados como tais. Não r
 
 Documentação oficial: [Remotive](https://github.com/remotive-com/remote-jobs-api), [LinkedIn](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access), [Indeed](https://docs.indeed.com/).
 
+## Currículo em PDF
+
+Na versão GitHub Pages, a tela **Meu currículo** aceita importação de `.pdf` e `.txt`. O PDF é lido no próprio navegador com `pdfjs-dist`; o arquivo não é enviado para servidor. O app mantém um histórico local das versões importadas, permite visualizar o texto extraído e restaurar uma versão anterior. Ao abrir uma vaga, o app monta um currículo otimizado para aquela oportunidade, preservando o currículo-base e destacando competências da vaga. O botão **Baixar PDF otimizado** gera um PDF no navegador com `jsPDF`.
+
+Essa otimização é local e estruturada. Para usar IA generativa real sem expor chave no frontend, é necessário um backend ou uma Supabase Edge Function que receba currículo e vaga, chame o modelo com segurança e retorne o texto para o PDF.
+
 ## Compatibilidade e adaptação
 
 O índice é a porcentagem de competências reconhecidas no anúncio que também aparecem no currículo ou na lista de habilidades declaradas. Usa um catálogo de competências e aliases, com correspondência textual. Não é uma avaliação semântica de experiência, idiomas ou senioridade e não é probabilidade de contratação.
 
-A adaptação é determinística, sem serviço pago de IA: define o objetivo da candidatura, destaca competências comuns e mantém todo o texto original. Não inventa experiências, datas, formação ou conhecimentos. A edição final é feita pelo usuário. Importação de PDF/DOCX e reescrita semântica por LLM não estão implementadas; copie o texto do documento para o campo do currículo.
+A adaptação é determinística, sem serviço pago de IA: define o objetivo da candidatura, destaca competências comuns e mantém todo o texto original. Não inventa experiências, datas, formação ou conhecimentos. A edição final é feita pelo usuário. Importação de PDF/TXT e geração local de PDF estão disponíveis na versão estática; DOCX e reescrita semântica por LLM exigem backend ou Edge Function.
 
 ## Arquitetura e dados
 
