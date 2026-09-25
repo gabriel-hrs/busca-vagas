@@ -105,6 +105,31 @@ Os anúncios de demonstração são fictícios e identificados como tais. Não r
 
 Documentação oficial: [Remotive](https://github.com/remotive-com/remote-jobs-api), [LinkedIn](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access), [Indeed](https://docs.indeed.com/).
 
+
+## Geração com IA generativa
+
+A versão GitHub Pages chama uma Supabase Edge Function chamada `generate-resume-ai` para gerar um currículo otimizado por vaga sem expor a chave da OpenAI no navegador.
+
+Páginas oficiais para seguir:
+
+1. OpenAI API: crie sua API key em **Platform > API keys** e consulte o Quickstart/Responses API na documentação oficial da OpenAI.
+2. Supabase Edge Functions: use a área **Edge Functions** do projeto ou a Supabase CLI para fazer deploy.
+3. Supabase Secrets: salve a chave com `OPENAI_API_KEY`; opcionalmente salve `OPENAI_MODEL`.
+
+Com Supabase CLI, os comandos são:
+
+```bash
+supabase login
+supabase link --project-ref SEU_PROJECT_REF
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase secrets set OPENAI_MODEL=gpt-6-astra
+supabase functions deploy generate-resume-ai
+```
+
+Depois do deploy, o app usa automaticamente `https://SEU_PROJECT_REF.supabase.co/functions/v1/generate-resume-ai`. Se quiser apontar para outro endpoint, configure `aiFunctionUrl` em `docs/auth-config.js` local ou no arquivo gerado pelo deploy.
+
+A função valida o login do Supabase, limita o uso às contas autorizadas e instrui a IA a não inventar experiências, empresas, datas, certificações ou tecnologias.
+
 ## Currículo em PDF
 
 Na versão GitHub Pages, a tela **Meu currículo** aceita importação de `.pdf` e `.txt`. O PDF é lido no próprio navegador com `pdfjs-dist`; o arquivo não é enviado para servidor. O app mantém um histórico local das versões importadas, permite visualizar o texto extraído e restaurar uma versão anterior. Ao abrir uma vaga, o app monta um currículo otimizado para aquela oportunidade, preservando o currículo-base e destacando competências da vaga. O botão **Baixar PDF otimizado** gera um PDF no navegador com `jsPDF`.

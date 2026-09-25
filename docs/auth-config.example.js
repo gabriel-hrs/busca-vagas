@@ -5,4 +5,6 @@ window.BuscaVagasAuthConfig = {
   // Localmente, use 'http://localhost:3000/'.
   // Em produção, use a URL pública onde o app completo estiver hospedado.
   appUrl: './app.html',
+  // Opcional. Se ficar vazio, o app usa `${supabaseUrl}/functions/v1/generate-resume-ai`.
+  aiFunctionUrl: '',
 };

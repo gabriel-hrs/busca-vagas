@@ -231,6 +231,7 @@
       const config = window.BuscaVagasAuthConfig || {};
       const key = config.supabasePublishableKey || config.supabaseAnonKey;
       const supabase = config.supabaseUrl && key ? createClient(config.supabaseUrl, key) : null;
+      const aiFunctionUrl = config.aiFunctionUrl || (config.supabaseUrl ? `${config.supabaseUrl.replace(/\/$/, '')}/functions/v1/generate-resume-ai` : '');
       if (!supabase) window.location.replace('./index.html');
       const { data } = await supabase.auth.getSession();
       if (!data.session) window.location.replace('./index.html');
@@ -457,7 +458,7 @@ ${base}`;
         const score = assess(job);
         $('modal-company').textContent = job.company;
         $('modal-title').textContent = job.title;
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">Revise antes de enviar. O texto preserva o currículo-base e não inventa experiências.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;gap:12px;margin-top:14px"><button id="download-resume-pdf" class="button">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div>`;
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">A versão inicial usa regras locais. Clique em Gerar com IA para uma reescrita mais forte, sem inventar experiência.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button">Gerar com IA</button><button id="download-resume-pdf" class="button secondary">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">A IA usa seu currículo ativo e a descrição da vaga via Supabase Edge Function.</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -494,6 +495,47 @@ ${base}`;
         }
         return ocrText;
       }
+      async function generateResumeWithAi() {
+        if (!selectedJob) return;
+        if (!store.resume.trim()) {
+          $('ai-status').textContent = 'Importe seu currículo-base antes de usar IA.';
+          return;
+        }
+        const button = $('generate-ai-resume');
+        button.disabled = true;
+        $('ai-status').textContent = 'Gerando currículo com IA...';
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) throw new Error('Sessão expirada. Faça login novamente.');
+          const response = await fetch(aiFunctionUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: key,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              profileName: activeProfile().name,
+              role: activeProfile().role,
+              resume: store.resume,
+              job: selectedJob,
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Não foi possível gerar com IA.');
+          if (!data.resume) throw new Error('A IA não retornou um currículo editável.');
+          $('optimized-resume').value = data.resume;
+          const keywords = data.matchedKeywords?.length ? ` Palavras-chave: ${data.matchedKeywords.slice(0, 8).join(', ')}.` : '';
+          const attention = data.attentionPoints?.length ? ` Atenção: ${data.attentionPoints.slice(0, 3).join(' | ')}` : '';
+          $('ai-status').textContent = `${data.summary || 'Currículo gerado com IA.'}${keywords}${attention}`;
+        } catch (error) {
+          console.error('Erro ao gerar currículo com IA:', error);
+          $('ai-status').textContent = error.message || 'Não foi possível gerar com IA agora.';
+        } finally {
+          button.disabled = false;
+        }
+      }
       async function downloadOptimizedPdf() {
         const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
         const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
@@ -528,6 +570,7 @@ ${base}`;
         if (target.dataset.profile) { store.profile = target.dataset.profile; currentView = 'jobs'; render(); }
         if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; saved[key] = !saved[key]; store.saved = saved; render(); }
         if (target.dataset.open) openJob(target.dataset.open);
+        if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
         if (target.id === 'copy-resume') navigator.clipboard?.writeText($('optimized-resume')?.value || '');
         if (target.id === 'preview-current-resume') previewResume(store.resumeMeta?.name || 'Currículo importado', store.resume);
