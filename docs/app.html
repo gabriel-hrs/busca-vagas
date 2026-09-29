@@ -86,7 +86,7 @@
       .stat strong { display: block; margin-top: 8px; font-size: 34px; letter-spacing: -.05em; }
       .callout { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px; border: 1px solid rgba(251, 191, 36, .34); border-radius: 24px; color: #fde68a; background: rgba(251, 191, 36, .08); margin-bottom: 24px; }
       .callout p { margin: 4px 0 0; color: #fef3c7; }
-      .toolbar { display: grid; grid-template-columns: 1fr repeat(3, minmax(130px, 170px)); gap: 10px; margin-bottom: 18px; }
+      .toolbar { display: grid; grid-template-columns: 1fr repeat(4, minmax(130px, 170px)); gap: 10px; margin-bottom: 18px; }
       .toolbar input, .toolbar select, textarea { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: #0f172a; outline: 0; }
       .jobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
       .job { padding: 18px; display: flex; flex-direction: column; gap: 13px; }
@@ -202,6 +202,7 @@
             <input id="search" placeholder="Buscar cargo, empresa ou tecnologia..." />
             <select id="mode"><option value="Todas">Modalidade</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
             <select id="level"><option value="Todas">Senioridade</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Não informada</option></select>
+            <select id="date-filter"><option value="all">Qualquer data</option><option value="1">Hoje</option><option value="3">Últimos 3 dias</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
             <select id="sort"><option value="match">Mais compatíveis</option><option value="recent">Mais recentes</option></select>
           </div>
           <div id="jobs" class="jobs"></div>
@@ -352,6 +353,25 @@
       }
       const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
       const formatDate = (value) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+      const parsePublished = (value) => {
+        const time = Date.parse(value || '');
+        return Number.isFinite(time) ? time : 0;
+      };
+      const formatJobDate = (value) => {
+        const time = parsePublished(value);
+        if (!time) return 'Data não informada';
+        const days = Math.floor((Date.now() - time) / 86400000);
+        if (days <= 0) return 'Publicada hoje';
+        if (days === 1) return 'Publicada ontem';
+        if (days < 30) return `Publicada há ${days} dias`;
+        return `Publicada em ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(time))}`;
+      };
+      const isWithinDays = (value, days) => {
+        if (days === 'all') return true;
+        const time = parsePublished(value);
+        if (!time) return false;
+        return Date.now() - time <= Number(days) * 86400000;
+      };
       const resumeSummary = (text) => `${(text || '').length.toLocaleString('pt-BR')} caracteres extraídos`;
       const aiDailyLimit = 6;
       const aiDailyBudget = 0.60;
@@ -472,8 +492,9 @@ ${base}`;
         const q = norm($('search').value);
         const mode = $('mode').value;
         const level = $('level').value;
-        let jobs = relevant().filter(j => (!q || norm(`${j.title} ${j.company} ${j.tags.join(' ')} ${j.description}`).includes(q)) && (mode === 'Todas' || j.mode === mode) && (level === 'Todas' || j.level === level));
-        jobs.sort((a,b) => $('sort').value === 'recent' ? Date.parse(b.published) - Date.parse(a.published) : (assess(b) ?? -1) - (assess(a) ?? -1));
+        const dateFilter = $('date-filter').value;
+        let jobs = relevant().filter(j => (!q || norm(`${j.title} ${j.company} ${j.tags.join(' ')} ${j.description}`).includes(q)) && (mode === 'Todas' || j.mode === mode) && (level === 'Todas' || j.level === level) && isWithinDays(j.published, dateFilter));
+        jobs.sort((a,b) => $('sort').value === 'recent' ? parsePublished(b.published) - parsePublished(a.published) : (assess(b) ?? -1) - (assess(a) ?? -1));
         return jobs;
       };
       function sourceCard(source, muted = false) {
@@ -492,7 +513,7 @@ ${base}`;
         const saved = !!store.saved[`${store.profile}:${job.id}`];
         const aiDone = !!savedAiResume(job);
         const app = applicationState(job);
-        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${saved ? `<span class="stage-badge">${app.stage}</span>` : ''}${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}</div><div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
+        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${saved ? `<span class="stage-badge">${app.stage}</span>` : ''}${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}</div><div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${formatJobDate(job.published)}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
       };
       function render() {
         const profile = activeProfile();
@@ -645,7 +666,7 @@ ${base}`;
         const app = applicationState(job);
         const stages = ['Salva', 'Vou me candidatar', 'Candidatura enviada', 'Entrevista', 'Teste técnico', 'Proposta', 'Encerrada'];
         const tracking = `<section class="tracking-panel"><strong>Acompanhamento da vaga</strong><label>Status<select id="application-stage">${stages.map(stage => `<option ${stage === app.stage ? 'selected' : ''}>${stage}</option>`).join('')}</select></label><label>Anotações<textarea id="application-notes" rows="3" placeholder="Ex.: data da candidatura, contato, próximos passos...">${escapeHtml(app.notes || '')}</textarea></label><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button id="save-application" class="button secondary" type="button">Salvar andamento</button><span id="application-status" class="file-note">${app.updatedAt ? `Atualizado em ${formatDate(app.updatedAt)}` : 'Ainda sem atualização de andamento.'}</span></div></section>`;
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div>${tracking}<h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span><span>${formatJobDate(job.published)}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div>${tracking}<h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -770,7 +791,7 @@ ${base}`;
         const locationText = norm(`${input.location || ''} ${input.description || ''}`);
         const mode = /hibrid|hybrid/.test(locationText) ? 'Híbrido' : /presencial|on.?site/.test(locationText) ? 'Presencial' : 'Remoto';
         const tags = [...new Set([...(input.tags || []), ...skills.filter(skill => containsSkillText(text, skill))])].slice(0, 10);
-        return { id: input.id, title: (input.title || '').slice(0, 200), company: input.company || 'Empresa não informada', role, level, mode, location: input.location || 'Remoto', salary: input.salary || 'Salário não informado', source: input.source, published: input.published || new Date().toISOString(), tags, description: (input.description || input.title || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 900), url: input.url || '' };
+        return { id: input.id, title: (input.title || '').slice(0, 200), company: input.company || 'Empresa não informada', role, level, mode, location: input.location || 'Remoto', salary: input.salary || 'Salário não informado', source: input.source, published: input.published || '', tags, description: (input.description || input.title || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 900), url: input.url || '' };
       }
       function compatibleStaticJob(job) {
         if (!job.url || !activeProfile().wants.includes(job.role)) return false;
@@ -787,7 +808,7 @@ ${base}`;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
-        }).sort((a, b) => Date.parse(b.published) - Date.parse(a.published));
+        }).sort((a, b) => parsePublished(b.published) - parsePublished(a.published));
       }
       async function fetchJson(url) {
         const response = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -832,7 +853,7 @@ ${base}`;
             description: cleanText(descriptionNode?.textContent || card.textContent || title),
             url,
             source,
-            published: new Date().toISOString(),
+            published: '',
           });
         }).filter(Boolean);
       }
@@ -1019,7 +1040,7 @@ ${base}`;
         }
       });
       $('profile').addEventListener('change', e => { store.profile = e.target.value; render(); });
-      ['search','mode','level','sort'].forEach(id => $(id).addEventListener('input', render));
+      ['search','mode','level','date-filter','sort'].forEach(id => $(id).addEventListener('input', render));
       $('resume-file').addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
