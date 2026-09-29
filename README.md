@@ -156,7 +156,7 @@ Dados pessoais são separados por identidade autenticada do Sites e perfil selec
 
 O app mantém uma lista de contas autorizadas por hash SHA-256 do e-mail autenticado, sem exibir e-mail completo na interface. A tela de login usa código por e-mail via Supabase Auth; não há envio por SMS nesta versão.
 
-Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed. Currículos inseridos localmente não são incluídos no código nem enviados na publicação. A versão adaptada preserva o currículo-base; alterações feitas no editor de exportação ficam apenas no arquivo baixado.
+Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed. Na versão estática do GitHub Pages, cada vaga salva também pode receber status de andamento e anotações, gravados no navegador por perfil. Currículos inseridos localmente não são incluídos no código nem enviados na publicação. A versão adaptada preserva o currículo-base; alterações feitas no editor de exportação ficam apenas no arquivo baixado.
 
 ## Próximas integrações
 

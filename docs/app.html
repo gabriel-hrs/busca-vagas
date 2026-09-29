@@ -128,6 +128,10 @@
       .history-item strong { display: block; }
       .history-item small { color: var(--muted); }
       .history-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .tracking-panel { display: grid; gap: 12px; margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: rgba(2, 6, 23, .26); }
+      .tracking-panel label { display: grid; gap: 6px; color: var(--muted); font-weight: 800; }
+      .tracking-panel select, .tracking-panel textarea { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--text); background: #0f172a; }
+      .stage-badge { display: inline-flex; width: fit-content; padding: 6px 9px; border: 1px solid rgba(167,139,250,.36); border-radius: 999px; color: #ddd6fe; background: rgba(167,139,250,.1); font-size: 12px; font-weight: 900; }
       .empty { padding: 32px; text-align: center; color: var(--muted); }
       @media (max-width: 1000px) {
         .shell { grid-template-columns: 1fr; }
@@ -273,6 +277,8 @@
         set aiUsage(v){ localStorage.setItem(`busca-vagas-static-ai-usage-${this.profile}`, JSON.stringify(v)); },
         get aiResumes(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-ai-resumes-${this.profile}`) || '{}'); },
         set aiResumes(v){ localStorage.setItem(`busca-vagas-static-ai-resumes-${this.profile}`, JSON.stringify(v)); },
+        get applications(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-applications-${this.profile}`) || '{}'); },
+        set applications(v){ localStorage.setItem(`busca-vagas-static-applications-${this.profile}`, JSON.stringify(v)); },
         get saved(){ return JSON.parse(localStorage.getItem('busca-vagas-static-saved') || '{}'); },
         set saved(v){ localStorage.setItem('busca-vagas-static-saved', JSON.stringify(v)); },
       };
@@ -291,8 +297,8 @@
       function jobLanguage(job) {
         const text = norm(`${job.title} ${job.description} ${job.location}`);
         const foreign = /worldwide|global|latam|europe|usa|united states|canada|argentina|mexico|remote availability|business hours/.test(text);
-        const englishWords = /(remote|developer|designer|requirements|experience|skills|working|availability|business|team|frontend|full[ -]?stack)/.test(text);
-        const portugueseWords = /(vaga|remoto|hibrido|presencial|experiencia|desenvolvedor|requisitos|atividades|brasil|sao paulo)/.test(text);
+        const englishWords = /(^|[^a-z0-9])(remote|developer|designer|requirements|experience|skills|working|availability|business|team|frontend|full[ -]?stack)([^a-z0-9]|$)/.test(text);
+        const portugueseWords = /(^|[^a-z0-9])(vaga|remoto|hibrido|presencial|experiencia|desenvolvedor|requisitos|atividades|brasil|sao paulo)([^a-z0-9]|$)/.test(text);
         return foreign || (englishWords && !portugueseWords) ? 'en' : 'pt-BR';
       }
       const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
@@ -341,6 +347,13 @@
       }
       const aiKey = (job) => `${store.profile}:${job.id}`;
       const savedAiResume = (job) => store.aiResumes[aiKey(job)] || null;
+      const applicationKey = (job) => `${store.profile}:${job.id}`;
+      const applicationState = (job) => store.applications[applicationKey(job)] || { stage: 'Salva', notes: '', updatedAt: null };
+      function saveApplicationState(job, value) {
+        const apps = store.applications;
+        apps[applicationKey(job)] = { ...applicationState(job), ...value, updatedAt: new Date().toISOString() };
+        store.applications = apps;
+      }
       function saveAiResume(job, data) {
         const resumes = store.aiResumes;
         resumes[aiKey(job)] = {
@@ -418,7 +431,8 @@ ${base}`;
         const score = assess(job);
         const saved = !!store.saved[`${store.profile}:${job.id}`];
         const aiDone = !!savedAiResume(job);
-        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3>${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
+        const app = applicationState(job);
+        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${saved ? `<span class="stage-badge">${app.stage}</span>` : ''}${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}</div><div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
       };
       function render() {
         const profile = activeProfile();
@@ -567,7 +581,10 @@ ${base}`;
         const eligibility = aiEligibility(job);
         const resumeText = existingAi?.text || optimizedResumeText(job);
         const sourceLink = job.url ? `<a class="button secondary" href="${escapeHtml(job.url)}" target="_blank" rel="noreferrer">Abrir vaga original ↗</a>` : '<span class="file-note">Link original não disponível para esta vaga.</span>';
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
+        const app = applicationState(job);
+        const stages = ['Salva', 'Vou me candidatar', 'Candidatura enviada', 'Entrevista', 'Teste técnico', 'Proposta', 'Encerrada'];
+        const tracking = `<section class="tracking-panel"><strong>Acompanhamento da vaga</strong><label>Status<select id="application-stage">${stages.map(stage => `<option ${stage === app.stage ? 'selected' : ''}>${stage}</option>`).join('')}</select></label><label>Anotações<textarea id="application-notes" rows="3" placeholder="Ex.: data da candidatura, contato, próximos passos...">${escapeHtml(app.notes || '')}</textarea></label><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button id="save-application" class="button secondary" type="button">Salvar andamento</button><span id="application-status" class="file-note">${app.updatedAt ? `Atualizado em ${formatDate(app.updatedAt)}` : 'Ainda sem atualização de andamento.'}</span></div></section>`;
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div>${tracking}<h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -790,6 +807,17 @@ ${base}`;
         if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
         if (target.id === 'copy-resume') navigator.clipboard?.writeText($('optimized-resume')?.value || '');
+        if (target.id === 'save-application' && selectedJob) {
+          const originalLabel = target.textContent;
+          target.disabled = true;
+          target.innerHTML = '<span class="spinner"></span>Salvando...';
+          saveApplicationState(selectedJob, { stage: $('application-stage').value, notes: $('application-notes').value });
+          store.saved = { ...store.saved, [`${store.profile}:${selectedJob.id}`]: true };
+          $('application-status').textContent = 'Andamento salvo agora.';
+          target.disabled = false;
+          target.textContent = originalLabel;
+          render();
+        }
         if (target.id === 'preview-current-resume') previewResume(store.resumeMeta?.name || 'Currículo importado', store.resume);
         if (target.id === 'clear-current-resume') { store.resume = ''; store.resumeMeta = null; render(); }
         if (target.dataset.previewResume) {
