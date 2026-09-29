@@ -128,7 +128,7 @@ supabase functions deploy generate-resume-ai
 
 Depois do deploy, o app usa automaticamente `https://SEU_PROJECT_REF.supabase.co/functions/v1/generate-resume-ai`. Se quiser apontar para outro endpoint, configure `aiFunctionUrl` em `docs/auth-config.js` local ou no arquivo gerado pelo deploy.
 
-A função valida o login do Supabase, limita o uso às contas autorizadas e instrui a IA a não inventar experiências, empresas, datas, certificações ou tecnologias. O frontend também ativa um modo de economia: o botão **Gerar com IA** só fica disponível para vagas com pelo menos 70% de compatibilidade e limita o uso local a 2 gerações por dia para cada pessoa. Quando uma vaga já tem currículo gerado por IA, o texto fica salvo localmente naquela vaga, o botão é bloqueado e o card mostra que o currículo IA está pronto. Para limite financeiro real, configure orçamento/credits no projeto da OpenAI.
+A função valida o login do Supabase, limita o uso às contas autorizadas e instrui a IA a não inventar experiências, empresas, datas, certificações ou tecnologias. O frontend também ativa um modo de economia: o botão **Gerar com IA** só fica disponível para vagas com pelo menos 65% de compatibilidade, limita o uso local a 6 gerações por dia para cada pessoa e estima US$ 0,09 por geração dentro de um orçamento local diário de US$ 0,60. Quando uma vaga já tem currículo gerado por IA, o texto fica salvo localmente naquela vaga, o botão é bloqueado e o card mostra que o currículo IA está pronto. Vagas em inglês ou fora do Brasil geram currículo em inglês automaticamente. Para limite financeiro real, configure orçamento/credits no projeto da OpenAI.
 
 ## Currículo em PDF
 

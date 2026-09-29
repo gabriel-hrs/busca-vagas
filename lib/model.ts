@@ -12,12 +12,13 @@ export const profiles: Profile[] = [
   { id: 'milena', name: 'Milena', headline: 'Designer UI/UX Júnior', resume: '', skills: '', seniority: 'Júnior' },
 ];
 export const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-export const skillCatalog = ['React', 'TypeScript', 'JavaScript', 'Next.js', 'Vue', 'Angular', 'HTML', 'CSS', 'Node.js', 'Python', 'SQL', 'PostgreSQL', 'Git', 'Docker', 'AWS', 'Figma', 'UI', 'UX', 'Design System', 'Prototipação', 'Pesquisa', 'Acessibilidade', 'Testes', 'Tailwind', 'GraphQL', 'REST', 'Scrum'];
+export const skillCatalog = ['React', 'TypeScript', 'JavaScript', 'Next.js', 'Vue', 'Angular', 'HTML', 'CSS', 'Node.js', 'Python', 'SQL', 'PostgreSQL', 'Git', 'Docker', 'AWS', 'Figma', 'UI', 'UX', 'Design System', 'Prototipação', 'Pesquisa', 'Acessibilidade', 'Testes', 'Tailwind', 'GraphQL', 'REST', 'Scrum', 'WordPress', 'PHP', 'Inglês'];
 const aliases: Record<string, string[]> = {
   'Next.js': ['nextjs', 'next.js', 'next js'], 'Node.js': ['nodejs', 'node.js', 'node js'],
   'Prototipação': ['prototipacao', 'prototyping', 'prototipos'], 'Pesquisa': ['pesquisa', 'research'],
   'Acessibilidade': ['acessibilidade', 'accessibility', 'wcag'], 'Testes': ['testes', 'testing', 'jest', 'vitest', 'cypress'],
   'Design System': ['design system', 'design systems'], 'React': ['react', 'reactjs', 'react.js'],
+  'REST': ['rest', 'api rest', 'apis'], 'Inglês': ['english', 'ingles', 'inglês'], 'Scrum': ['scrum', 'kanban', 'agile'],
 };
 export function containsSkill(text: string, skill: string) {
   const haystack = normalize(text);
@@ -28,10 +29,13 @@ export function containsSkill(text: string, skill: string) {
 }
 export function assess(job: Job, profile: Profile) {
   const evidence = `${profile.resume}\n${profile.skills}`;
-  const requirements = [...new Set([...job.tags, ...skillCatalog.filter(s => containsSkill(job.description, s))])];
-  const matched = requirements.filter(s => containsSkill(evidence, s));
-  const missing = requirements.filter(s => !containsSkill(evidence, s));
-  return { score: evidence.trim() && requirements.length ? Math.round(matched.length / requirements.length * 100) : null, matched, missing, requirements };
+  const text = `${job.title}\n${job.description}\n${job.tags.join(' ')}`;
+  const profileBase = profile.id === 'milena' ? ['Figma', 'UI', 'UX', 'Pesquisa', 'Prototipação', 'Design System', 'Acessibilidade'] : ['React', 'TypeScript', 'JavaScript', 'HTML', 'CSS', 'Node.js', 'REST', 'Git', 'Scrum'];
+  const requirements = [...new Set([...job.tags.filter(s => skillCatalog.includes(s)), ...skillCatalog.filter(s => containsSkill(text, s)), ...profileBase.filter(s => containsSkill(text, s))])];
+  const reqs = requirements.length ? requirements : profileBase.slice(0, 5);
+  const matched = reqs.filter(s => containsSkill(evidence, s));
+  const missing = reqs.filter(s => !containsSkill(evidence, s));
+  return { score: evidence.trim() && reqs.length ? Math.max(8, Math.min(96, Math.round(matched.length / reqs.length * 100))) : null, matched, missing, requirements: reqs };
 }
 export function tailor(job: Job, profile: Profile) {
   const { matched, missing } = assess(job, profile);

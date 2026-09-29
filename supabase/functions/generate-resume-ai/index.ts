@@ -13,6 +13,7 @@ type ResumeRequest = {
   profileName?: string;
   role?: string;
   resume?: string;
+  language?: 'pt-BR' | 'en';
   job?: {
     title?: string;
     company?: string;
@@ -100,7 +101,8 @@ Regras obrigatórias:
 - Use somente experiências, empresas, cargos, formação, datas, ferramentas e resultados que estejam no currículo-base.
 - Não invente certificações, idiomas, senioridade, métricas, empresas, datas ou tecnologias.
 - Se a vaga pedir algo ausente no currículo-base, coloque em "pontos_atencao", sem inserir como experiência.
-- Priorize clareza, ATS, palavras-chave verdadeiras e português profissional.
+- Priorize clareza, ATS e palavras-chave verdadeiras.
+- Idioma obrigatório do currículo otimizado: ${payload.language === 'en' ? 'inglês profissional' : 'português profissional do Brasil'}.
 - Preserve a identidade como ${payload.profileName} e o foco em ${payload.role}.
 - Retorne APENAS JSON válido, sem markdown.
 
@@ -163,6 +165,7 @@ Deno.serve(async request => {
     profileName: trimText(body.profileName, 80),
     role: trimText(body.role, 120),
     resume: trimText(body.resume, 22000),
+    language: body.language === 'en' ? 'en' : 'pt-BR',
     job: {
       title: trimText(body.job?.title, 160),
       company: trimText(body.job?.company, 120),
@@ -206,9 +209,10 @@ Deno.serve(async request => {
       summary: String(parsed.summary || '').trim(),
       matchedKeywords: Array.isArray(parsed.matched_keywords) ? parsed.matched_keywords.slice(0, 24).map(String) : [],
       attentionPoints: Array.isArray(parsed.attention_points) ? parsed.attention_points.slice(0, 12).map(String) : [],
+      estimatedCost: 0.09,
       model,
     }, 200, request);
   } catch {
-    return json({ resume: outputText, summary: 'A IA retornou texto livre; revise antes de enviar.', matchedKeywords: [], attentionPoints: ['Retorno fora do formato JSON esperado.'], model }, 200, request);
+    return json({ resume: outputText, summary: 'A IA retornou texto livre; revise antes de enviar.', matchedKeywords: [], attentionPoints: ['Retorno fora do formato JSON esperado.'], estimatedCost: 0.09, model }, 200, request);
   }
 });

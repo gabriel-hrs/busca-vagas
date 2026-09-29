@@ -241,7 +241,14 @@
       const { data } = await supabase.auth.getSession();
       if (!data.session) window.location.replace('./index.html');
 
-      const skills = ['React','TypeScript','JavaScript','CSS','HTML','Next.js','Node.js','Figma','UX','UI','Pesquisa','Prototipação','Acessibilidade','Design System'];
+      const skills = ['React','TypeScript','JavaScript','CSS','HTML','Next.js','Node.js','Figma','UX','UI','Pesquisa','Prototipação','Acessibilidade','Design System','REST','GraphQL','Git','Docker','SQL','Testes','Tailwind','WordPress','PHP','Scrum','Inglês'];
+      const skillAliases = {
+        'React': ['react', 'reactjs', 'react.js'], 'TypeScript': ['typescript', 'ts'], 'JavaScript': ['javascript', 'js', 'es6'], 'CSS': ['css', 'css3'], 'HTML': ['html', 'html5'],
+        'Next.js': ['nextjs', 'next.js', 'next js'], 'Node.js': ['nodejs', 'node.js', 'node js'], 'Design System': ['design system', 'design systems'],
+        'Prototipação': ['prototipacao', 'prototyping', 'prototype'], 'Pesquisa': ['pesquisa', 'research'], 'Acessibilidade': ['acessibilidade', 'accessibility', 'wcag'],
+        'Testes': ['testes', 'testing', 'jest', 'vitest', 'cypress'], 'REST': ['rest', 'api rest', 'apis'], 'GraphQL': ['graphql'], 'Tailwind': ['tailwind'], 'WordPress': ['wordpress'],
+        'Inglês': ['english', 'ingles', 'inglês'], 'UI': ['ui', 'user interface'], 'UX': ['ux', 'user experience'], 'Scrum': ['scrum', 'kanban', 'agile']
+      };
       let selectedJob = null;
       const profiles = {
         gabriel: { name:'Pessoa G', role:'Front-end & Full Stack', wants:['Front-end','Full Stack'], skills:['React','TypeScript','JavaScript','CSS','HTML','Node.js','Next.js'] },
@@ -274,29 +281,62 @@
 
       const $ = (id) => document.getElementById(id);
       const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      function containsTerm(text, term) {
+        const escaped = norm(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i').test(norm(text));
+      }
+      function containsSkillText(text, skill) {
+        return (skillAliases[skill] || [skill]).some(alias => containsTerm(text, alias));
+      }
+      function jobLanguage(job) {
+        const text = norm(`${job.title} ${job.description} ${job.location}`);
+        const foreign = /worldwide|global|latam|europe|usa|united states|canada|argentina|mexico|remote availability|business hours/.test(text);
+        const englishWords = /(remote|developer|designer|requirements|experience|skills|working|availability|business|team|frontend|full[ -]?stack)/.test(text);
+        const portugueseWords = /(vaga|remoto|hibrido|presencial|experiencia|desenvolvedor|requisitos|atividades|brasil|sao paulo)/.test(text);
+        return foreign || (englishWords && !portugueseWords) ? 'en' : 'pt-BR';
+      }
       const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
       const formatDate = (value) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
       const resumeSummary = (text) => `${(text || '').length.toLocaleString('pt-BR')} caracteres extraídos`;
-      const aiDailyLimit = 2;
-      const aiMinimumScore = 70;
+      const aiDailyLimit = 6;
+      const aiDailyBudget = 0.60;
+      const estimatedAiCost = 0.09;
+      const aiMinimumScore = 65;
       const todayKey = () => new Date().toISOString().slice(0, 10);
       const activeProfile = () => profiles[store.profile];
       const pool = () => [...demoJobs, ...remoteJobs];
       const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role));
-      const resumeText = () => norm(store.resume + ' ' + activeProfile().skills.join(' '));
+      const resumeText = () => `${store.resume} ${activeProfile().skills.join(' ')}`;
+      function jobRequirements(job) {
+        const text = `${job.title} ${job.description} ${job.tags.join(' ')}`;
+        const found = skills.filter(skill => containsSkillText(text, skill));
+        const profileBase = activeProfile().id === 'gabriel' ? ['React','TypeScript','JavaScript','HTML','CSS','Node.js','REST','Git','Scrum'] : ['Figma','UI','UX','Pesquisa','Prototipação','Design System','Acessibilidade'];
+        const requirements = [...new Set([...job.tags.filter(t => skills.includes(t)), ...found, ...profileBase.filter(skill => containsSkillText(text, skill))])];
+        return requirements.length ? requirements : profileBase.slice(0, 5);
+      }
       const assessDetails = (job) => {
-        const reqs = job.tags.filter(t => skills.includes(t));
-        if (!reqs.length || !resumeText().trim()) return { score: null, matched: [], missing: reqs };
-        const matched = reqs.filter(t => resumeText().includes(norm(t)) || activeProfile().skills.map(norm).includes(norm(t)));
-        return { score: Math.round((matched.length / reqs.length) * 100), matched, missing: reqs.filter(t => !matched.includes(t)) };
+        const reqs = jobRequirements(job);
+        const evidence = resumeText();
+        if (!evidence.trim()) return { score: null, matched: [], missing: reqs };
+        const matched = reqs.filter(t => containsSkillText(evidence, t));
+        const missing = reqs.filter(t => !matched.includes(t));
+        const raw = matched.length / Math.max(reqs.length, 1);
+        const score = Math.max(8, Math.min(96, Math.round(raw * 100)));
+        return { score, matched, missing };
       };
       const assess = (job) => assessDetails(job).score;
       function aiUsageToday() {
-        return Number(store.aiUsage[todayKey()] || 0);
+        const day = store.aiUsage[todayKey()];
+        return typeof day === 'number' ? day : Number(day?.count || 0);
       }
-      function registerAiUsage() {
+      function aiCostToday() {
+        const day = store.aiUsage[todayKey()];
+        return typeof day === 'number' ? day * estimatedAiCost : Number(day?.estimatedCost || 0);
+      }
+      function registerAiUsage(cost = estimatedAiCost) {
         const usage = store.aiUsage;
-        usage[todayKey()] = aiUsageToday() + 1;
+        const day = usage[todayKey()] || { count: 0, estimatedCost: 0 };
+        usage[todayKey()] = typeof day === 'number' ? { count: day + 1, estimatedCost: cost } : { count: Number(day.count || 0) + 1, estimatedCost: Number(day.estimatedCost || 0) + cost };
         store.aiUsage = usage;
       }
       const aiKey = (job) => `${store.profile}:${job.id}`;
@@ -310,14 +350,14 @@
           attentionPoints: data.attentionPoints || [],
           model: data.model || '',
           createdAt: new Date().toISOString(),
-          estimatedCredits: 1,
+          estimatedCost: data.estimatedCost || estimatedAiCost,
         };
         store.aiResumes = resumes;
       }
       function aiUsageSummary() {
         const items = Object.values(store.aiResumes);
-        const spent = items.reduce((total, item) => total + Number(item.estimatedCredits || 1), 0);
-        return `Uso IA ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} hoje · ${spent} crédito(s) local(is) estimado(s) em ${items.length} currículo(s).`;
+        const spent = items.reduce((total, item) => total + Number(item.estimatedCost || estimatedAiCost), 0);
+        return `Uso IA ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} hoje · US$ ${aiCostToday().toFixed(2)}/US$ ${aiDailyBudget.toFixed(2)} hoje · US$ ${spent.toFixed(2)} estimado em ${items.length} currículo(s).`;
       }
       function aiEligibility(job) {
         const score = assess(job);
@@ -326,6 +366,7 @@
         if (score === null) return { allowed: false, reason: 'A IA é liberada depois que a compatibilidade puder ser calculada.' };
         if (score < aiMinimumScore) return { allowed: false, reason: `Economia ativada: use IA só em vagas com ${aiMinimumScore}% ou mais de match. Esta está com ${score}%.` };
         if (aiUsageToday() >= aiDailyLimit) return { allowed: false, reason: `Limite diário da ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} gerações usadas hoje.` };
+        if (aiCostToday() + estimatedAiCost > aiDailyBudget) return { allowed: false, reason: `Orçamento local diário atingido: US$ ${aiCostToday().toFixed(2)}/US$ ${aiDailyBudget.toFixed(2)} usados hoje.` };
         return { allowed: true, reason: `Recomendado gerar com IA: ${score}% de match. ${aiUsageSummary()}` };
       }
       const optimizedResumeText = (job) => {
@@ -336,6 +377,20 @@
         const missing = details.missing.length ? `
 
 Pontos para revisar antes de enviar: ${details.missing.join(', ')}. Inclua somente se tiver experiência real.` : '';
+        if (jobLanguage(job) === 'en') return `OPTIMIZED RESUME — ${profile.name}
+
+Target role
+Application for ${job.title} at ${job.company}.
+
+Targeted summary
+Professional interested in ${job.role} roles, highlighting ${matched}.
+
+Skills aligned with the job
+${job.tags.map(tag => `• ${tag}`).join('\n')}
+${missing ? `\nPoints to review before applying: ${details.missing.join(', ')}. Include only if you have real experience.` : ''}
+
+Base resume preserved
+${base}`;
         return `CURRÍCULO OTIMIZADO — ${profile.name}
 
 Objetivo
@@ -577,6 +632,7 @@ ${base}`;
               profileName: activeProfile().name,
               role: activeProfile().role,
               resume: store.resume,
+              language: jobLanguage(selectedJob),
               job: selectedJob,
             }),
           });
@@ -585,7 +641,7 @@ ${base}`;
           if (!data.resume) throw new Error('A IA não retornou um currículo editável.');
           $('optimized-resume').value = data.resume;
           saveAiResume(selectedJob, data);
-          registerAiUsage();
+          registerAiUsage(Number(data.estimatedCost || estimatedAiCost));
           button.textContent = 'IA já gerou esta vaga';
           button.disabled = true;
           const keywords = data.matchedKeywords?.length ? ` Palavras-chave: ${data.matchedKeywords.slice(0, 8).join(', ')}.` : '';
