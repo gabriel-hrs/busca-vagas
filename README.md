@@ -97,6 +97,7 @@ Os anúncios de demonstração são fictícios e identificados como tais. Não r
 - **Remote OK:** integração por feed JSON público. O app preserva crédito e link direto para a vaga, conforme exigência da fonte.
 - **We Work Remotely:** integração por RSS oficial de programação, front-end, full stack e design. O app preserva atribuição e link de volta.
 - **Working Nomads e Jobicy:** integração por feed/API pública para vagas remotas. O app preserva a origem e o link original.
+- **Greenhouse ATS e Lever ATS:** integração direta nos endpoints públicos de empresas selecionadas, inspirada nas buscas `site:boards.greenhouse.io` e `site:jobs.lever.co`. O app consulta a origem das vagas sem raspar o Google, preservando links oficiais.
 - **Remote.co, Dribbble, Hubstaff Talent e SoyFreelancer:** integração oportunista por HTML público. Essas fontes entram quando o próprio site permite leitura pelo navegador; se houver bloqueio de CORS, login ou mudança de layout, elas falham isoladamente e as demais fontes continuam funcionando.
 - **FrontendBR:** integração por GitHub Issues públicas do repositório `frontendbr/vagas`, útil para vagas brasileiras de front-end.
 - **LinkedIn:** não há coleta automática nesta versão porque o acesso oficial de Jobs é restrito a desenvolvedores aprovados pelo LinkedIn Talent Solutions. O app exibe o status da fonte, a documentação oficial e o atalho de busca por perfil.
@@ -164,4 +165,4 @@ Vagas salvas têm um snapshot para continuarem acessíveis após expirar do feed
 
 ## Próximas integrações
 
-LinkedIn, Indeed e portais fechados podem virar conectores automáticos quando houver credenciais oficiais compatíveis com o caso de uso. Até lá, o sistema usa API pública, RSS oficial, GitHub Issues públicas e importação manual. Não são necessários segredos para Remotive, Himalayas, Remote OK, We Work Remotely, Working Nomads, Jobicy ou FrontendBR; fontes por HTML podem depender de CORS do próprio site. Uma implantação compartilhada entre duas contas requer configurar acesso e modelo de compartilhamento; não torne o espaço público para compartilhar currículos.
+LinkedIn, Indeed e portais fechados podem virar conectores automáticos quando houver credenciais oficiais compatíveis com o caso de uso. Até lá, o sistema usa API pública, RSS oficial, ATS públicos, GitHub Issues públicas e importação manual. Não são necessários segredos para Remotive, Himalayas, Remote OK, We Work Remotely, Working Nomads, Jobicy, Greenhouse, Lever ou FrontendBR; fontes por HTML podem depender de CORS do próprio site. Uma implantação compartilhada entre duas contas requer configurar acesso e modelo de compartilhamento; não torne o espaço público para compartilhar currículos.

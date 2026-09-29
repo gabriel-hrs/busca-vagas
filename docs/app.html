@@ -222,7 +222,7 @@
             <h2>Fontes de vagas</h2>
             <p style="color:var(--muted)">Esta versão estática tenta carregar fontes públicas com CORS liberado no navegador. Se uma fonte bloquear, as demais continuam funcionando.</p>
             <div class="jobs" style="margin-top:18px">
-              <article class="job"><h3>Automáticas no app</h3><p>Remotive, Himalayas, Remote OK, FrontendBR, We Work Remotely, Working Nomads, Jobicy, Remote.co, Dribbble, Hubstaff Talent e SoyFreelancer.</p><a class="link-button" href="https://remotive.com/" target="_blank" rel="noreferrer">Abrir Remotive ↗</a></article>
+              <article class="job"><h3>Automáticas no app</h3><p>Remotive, Himalayas, Remote OK, FrontendBR, We Work Remotely, Working Nomads, Jobicy, Greenhouse ATS, Lever ATS, Remote.co, Dribbble, Hubstaff Talent e SoyFreelancer.</p><a class="link-button" href="https://remotive.com/" target="_blank" rel="noreferrer">Abrir Remotive ↗</a></article>
               <article class="job"><h3>Newsletter Indeed</h3><p>O GitHub Pages não lê sua caixa de e-mail. Para automatizar newsletter, precisa conectar Gmail/Outlook ou encaminhar para uma função parser.</p><a class="link-button" href="https://br.indeed.com/" target="_blank" rel="noreferrer">Abrir Indeed ↗</a></article>
               <article class="job"><h3>Portais fechados</h3><p>LinkedIn, Indeed, Wellfound, Authentic Jobs, Upwork, Fiverr, Revelo e similares exigem conta, API key, parceiro aprovado, scraping proibido ou importação manual. Namelix, Feedcoyote e Kickresume não são fontes diretas de vagas.</p><a class="link-button" href="https://www.linkedin.com/jobs/" target="_blank" rel="noreferrer">Abrir LinkedIn ↗</a></article>
             </div>
@@ -807,6 +807,45 @@ ${base}`;
         return (data.jobs || []).map(j => toStaticJob({ id: `jobicy-${j.id}`, title: j.jobTitle, company: j.companyName, location: j.jobGeo || 'Remoto', description: j.jobDescription || '', url: j.url, source: 'Jobicy', published: j.pubDate, salary: j.annualSalaryMin || j.annualSalaryMax ? `${j.salaryCurrency || 'USD'} ${j.annualSalaryMin || ''}${j.annualSalaryMin && j.annualSalaryMax ? ' - ' : ''}${j.annualSalaryMax || ''}` : 'Salário não informado', tags: j.jobIndustry || [] }));
       }
 
+      const greenhouseBoards = ['airbnb', 'figma', 'gitlab', 'stripe', 'datadog', 'doordash', 'reddit', 'dropbox', 'lyft', 'nubank', 'quintoandar', 'hotmart'];
+      const leverCompanies = ['canonical', 'webflow', 'remote', 'netlify', 'vercel', 'zapier', 'docker', 'supabase', 'gitlab', 'deel', 'brex', 'ramp'];
+      async function fetchGreenhouseAtsStatic() {
+        const boards = await Promise.allSettled(greenhouseBoards.map(board => fetchJson(`https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`)));
+        return boards.flatMap((result, boardIndex) => {
+          if (result.status !== 'fulfilled') return [];
+          const board = greenhouseBoards[boardIndex];
+          return (result.value.jobs || []).map(job => toStaticJob({
+            id: `greenhouse-${board}-${job.id}`,
+            title: job.title,
+            company: board.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+            location: job.location?.name || 'Remoto',
+            description: job.content || job.title,
+            url: job.absolute_url,
+            source: 'Greenhouse ATS',
+            published: job.updated_at,
+            tags: [job.departments?.[0]?.name, job.offices?.[0]?.name].filter(Boolean),
+          }));
+        });
+      }
+      async function fetchLeverAtsStatic() {
+        const companies = await Promise.allSettled(leverCompanies.map(company => fetchJson(`https://api.lever.co/v0/postings/${company}?mode=json`)));
+        return companies.flatMap((result, companyIndex) => {
+          if (result.status !== 'fulfilled') return [];
+          const company = leverCompanies[companyIndex];
+          return (result.value || []).map(job => toStaticJob({
+            id: `lever-${company}-${job.id}`,
+            title: job.text,
+            company: company.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+            location: job.categories?.location || 'Remoto',
+            description: [job.descriptionPlain, job.additionalPlain, ...(job.lists || []).map(list => `${list.text}: ${(list.content || '').replace(/<[^>]+>/g, ' ')}`)].filter(Boolean).join(' '),
+            url: job.hostedUrl || job.applyUrl,
+            source: 'Lever ATS',
+            published: job.createdAt ? new Date(job.createdAt).toISOString() : undefined,
+            tags: [job.categories?.team, job.categories?.commitment, job.categories?.department].filter(Boolean),
+          }));
+        });
+      }
+
       async function fetchRemoteCoStatic() {
         const html = await fetchText('https://remote.co/remote-jobs/developer/');
         return htmlJobCards(html, 'https://remote.co/remote-jobs/developer/', {
@@ -864,14 +903,14 @@ ${base}`;
         const button = $('sync');
         const originalLabel = button.textContent;
         button.disabled = true;
-        button.innerHTML = '<span class="spinner"></span>Buscando em 11 fontes...';
+        button.innerHTML = '<span class="spinner"></span>Buscando em 13 fontes...';
         try {
-          const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic, fetchRemoteCoStatic, fetchDribbbleStatic, fetchHubstaffTalentStatic, fetchSoyFreelancerStatic];
+          const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic, fetchGreenhouseAtsStatic, fetchLeverAtsStatic, fetchRemoteCoStatic, fetchDribbbleStatic, fetchHubstaffTalentStatic, fetchSoyFreelancerStatic];
           const results = await Promise.allSettled(fetchers.map(fn => fn()));
           const jobs = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
           remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title })).filter(compatibleStaticJob)).slice(0, 80);
           const loaded = results.filter(result => result.status === 'fulfilled').length;
-          button.textContent = `Atualizar vagas (${loaded}/11 fontes)`;
+          button.textContent = `Atualizar vagas (${loaded}/13 fontes)`;
           render();
         } catch (error) {
           console.error('Erro ao atualizar vagas:', error);
