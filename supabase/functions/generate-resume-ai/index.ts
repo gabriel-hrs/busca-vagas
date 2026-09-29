@@ -5,7 +5,7 @@ const allowedOrigins = new Set([
 ]);
 
 const allowedEmailHashes = new Set([
-  '79236d53e4d8b03650380e117e9fbf6e2bf6de2e02945a2e48225725f9cc8921',
+  '3718db2f26e979e1340b4ae92844ed8cfdd1520212bd12340764259189d65f3d',
   'd5a6101ef761af2034e6ce117b517f56bd0958eb55afc8a3ef733972f4163e39',
 ]);
 
