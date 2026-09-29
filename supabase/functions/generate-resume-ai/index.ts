@@ -53,6 +53,19 @@ function trimText(value: unknown, max: number) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+function openAiErrorMessage(data: Record<string, unknown>) {
+  const message = typeof (data as { error?: { message?: unknown } }).error?.message === 'string'
+    ? (data as { error: { message: string } }).error.message
+    : '';
+  if (/no credits remaining/i.test(message)) {
+    return 'A conta/projeto da OpenAI está sem créditos. Adicione créditos ou configure um limite de billing antes de gerar novos currículos.';
+  }
+  if (/rate limit|too many requests/i.test(message)) {
+    return 'A OpenAI limitou a requisição agora. Aguarde um pouco ou revise os limites do projeto.';
+  }
+  return message || 'Falha ao gerar currículo com IA.';
+}
+
 function supabasePublishableKey() {
   const legacy = Deno.env.get('SUPABASE_ANON_KEY');
   if (legacy) return legacy;
@@ -106,10 +119,10 @@ Empresa: ${trimText(job.company, 120)}
 Senioridade: ${trimText(job.level, 80)}
 Modalidade/local: ${trimText(`${job.mode} - ${job.location}`, 140)}
 Tags detectadas: ${(job.tags || []).map(tag => trimText(tag, 40)).join(', ')}
-Descrição: ${trimText(job.description, 12000)}
+Descrição: ${trimText(job.description, 7000)}
 
 Currículo-base:
-${trimText(payload.resume, 26000)}`;
+${trimText(payload.resume, 18000)}`;
 }
 
 function parseOutputText(data: Record<string, unknown>) {
@@ -149,7 +162,7 @@ Deno.serve(async request => {
   const payload = {
     profileName: trimText(body.profileName, 80),
     role: trimText(body.role, 120),
-    resume: trimText(body.resume, 30000),
+    resume: trimText(body.resume, 22000),
     job: {
       title: trimText(body.job?.title, 160),
       company: trimText(body.job?.company, 120),
@@ -159,7 +172,7 @@ Deno.serve(async request => {
       location: trimText(body.job?.location, 120),
       salary: trimText(body.job?.salary, 80),
       tags: Array.isArray(body.job?.tags) ? body.job.tags.slice(0, 16).map(tag => trimText(tag, 40)) : [],
-      description: trimText(body.job?.description, 12000),
+      description: trimText(body.job?.description, 8000),
     },
   };
 
@@ -176,13 +189,13 @@ Deno.serve(async request => {
     body: JSON.stringify({
       model,
       input: buildPrompt(payload),
-      max_output_tokens: 2600,
+      max_output_tokens: 1800,
     }),
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    return json({ error: 'Falha ao gerar currículo com IA.', details: data?.error?.message || data }, response.status, request);
+    return json({ error: 'Falha ao gerar currículo com IA.', details: openAiErrorMessage(data), openaiStatus: response.status }, response.status, request);
   }
 
   const outputText = parseOutputText(data);

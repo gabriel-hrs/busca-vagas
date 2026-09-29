@@ -257,6 +257,8 @@
         set resumeMeta(v){ v ? localStorage.setItem(`busca-vagas-static-resume-meta-${this.profile}`, JSON.stringify(v)) : localStorage.removeItem(`busca-vagas-static-resume-meta-${this.profile}`); },
         get resumeHistory(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-resume-history-${this.profile}`) || '[]'); },
         set resumeHistory(v){ localStorage.setItem(`busca-vagas-static-resume-history-${this.profile}`, JSON.stringify(v.slice(0, 10))); },
+        get aiUsage(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-ai-usage-${this.profile}`) || '{}'); },
+        set aiUsage(v){ localStorage.setItem(`busca-vagas-static-ai-usage-${this.profile}`, JSON.stringify(v)); },
         get saved(){ return JSON.parse(localStorage.getItem('busca-vagas-static-saved') || '{}'); },
         set saved(v){ localStorage.setItem('busca-vagas-static-saved', JSON.stringify(v)); },
       };
@@ -268,6 +270,9 @@
       const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
       const formatDate = (value) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
       const resumeSummary = (text) => `${(text || '').length.toLocaleString('pt-BR')} caracteres extraídos`;
+      const aiDailyLimit = 2;
+      const aiMinimumScore = 70;
+      const todayKey = () => new Date().toISOString().slice(0, 10);
       const activeProfile = () => profiles[store.profile];
       const pool = () => [...demoJobs, ...remoteJobs];
       const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role));
@@ -279,6 +284,22 @@
         return { score: Math.round((matched.length / reqs.length) * 100), matched, missing: reqs.filter(t => !matched.includes(t)) };
       };
       const assess = (job) => assessDetails(job).score;
+      function aiUsageToday() {
+        return Number(store.aiUsage[todayKey()] || 0);
+      }
+      function registerAiUsage() {
+        const usage = store.aiUsage;
+        usage[todayKey()] = aiUsageToday() + 1;
+        store.aiUsage = usage;
+      }
+      function aiEligibility(job) {
+        const score = assess(job);
+        if (!store.resume.trim()) return { allowed: false, reason: 'Importe seu currículo-base antes de usar IA.' };
+        if (score === null) return { allowed: false, reason: 'A IA é liberada depois que a compatibilidade puder ser calculada.' };
+        if (score < aiMinimumScore) return { allowed: false, reason: `Economia ativada: use IA só em vagas com ${aiMinimumScore}% ou mais de match. Esta está com ${score}%.` };
+        if (aiUsageToday() >= aiDailyLimit) return { allowed: false, reason: `Limite diário da ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} gerações usadas hoje.` };
+        return { allowed: true, reason: `Recomendado gerar com IA: ${score}% de match. Uso hoje: ${aiUsageToday()}/${aiDailyLimit}.` };
+      }
       const optimizedResumeText = (job) => {
         const profile = activeProfile();
         const details = assessDetails(job);
@@ -458,7 +479,8 @@ ${base}`;
         const score = assess(job);
         $('modal-company').textContent = job.company;
         $('modal-title').textContent = job.title;
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">A versão inicial usa regras locais. Clique em Gerar com IA para uma reescrita mais forte, sem inventar experiência.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button">Gerar com IA</button><button id="download-resume-pdf" class="button secondary">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">A IA usa seu currículo ativo e a descrição da vaga via Supabase Edge Function.</p>`;
+        const eligibility = aiEligibility(job);
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>Gerar com IA</button><button id="download-resume-pdf" class="button secondary">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${eligibility.reason}</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -508,6 +530,8 @@ ${base}`;
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData.session?.access_token;
           if (!token) throw new Error('Sessão expirada. Faça login novamente.');
+          const eligibility = aiEligibility(selectedJob);
+          if (!eligibility.allowed) throw new Error(eligibility.reason);
           const response = await fetch(aiFunctionUrl, {
             method: 'POST',
             headers: {
@@ -523,9 +547,10 @@ ${base}`;
             }),
           });
           const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.error || 'Não foi possível gerar com IA.');
+          if (!response.ok) throw new Error(data.details || data.error || 'Não foi possível gerar com IA.');
           if (!data.resume) throw new Error('A IA não retornou um currículo editável.');
           $('optimized-resume').value = data.resume;
+          registerAiUsage();
           const keywords = data.matchedKeywords?.length ? ` Palavras-chave: ${data.matchedKeywords.slice(0, 8).join(', ')}.` : '';
           const attention = data.attentionPoints?.length ? ` Atenção: ${data.attentionPoints.slice(0, 3).join(' | ')}` : '';
           $('ai-status').textContent = `${data.summary || 'Currículo gerado com IA.'}${keywords}${attention}`;
