@@ -496,7 +496,7 @@ ${base}`;
         const dateFilter = $('date-filter').value;
         let jobs = relevant().filter(j => (!q || norm(`${j.title} ${j.company} ${j.tags.join(' ')} ${j.description}`).includes(q)) && (mode === 'Todas' || j.mode === mode) && (level === 'Todas' || j.level === level) && isWithinDays(j.published, dateFilter));
         jobs.sort((a,b) => $('sort').value === 'recent' ? parsePublished(b.published) - parsePublished(a.published) : (assess(b) ?? -1) - (assess(a) ?? -1));
-        return jobs;
+        return jobs.slice(0, 120);
       };
       function sourceCard(source, muted = false) {
         return `<article class="source-card"><div><h3>${escapeHtml(source.name)}</h3><p>${escapeHtml(source.detail)}</p><div class="source-meta"><span>${escapeHtml(source.type)}</span><span class="source-status ${muted ? 'muted' : ''}">${escapeHtml(source.status)}</span></div></div><a class="link-button" href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">Abrir ↗</a></article>`;
@@ -991,7 +991,7 @@ ${base}`;
           const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic, fetchGreenhouseAtsStatic, fetchLeverAtsStatic, fetchRemoteCoStatic, fetchDribbbleStatic, fetchHubstaffTalentStatic, fetchSoyFreelancerStatic];
           const results = await Promise.allSettled(fetchers.map(fn => fn()));
           const jobs = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-          remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title }))).slice(0, 180);
+          remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title })));
           const loaded = results.filter(result => result.status === 'fulfilled').length;
           button.textContent = `Atualizar vagas (${loaded}/13 fontes)`;
           render();
