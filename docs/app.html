@@ -103,7 +103,12 @@
       .salary { color: #bbf7d0; font-weight: 900; }
       .match { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
       .match strong { color: var(--success); }
+      .ai-badge { display: inline-flex; width: fit-content; padding: 6px 9px; border: 1px solid rgba(52, 211, 153, .36); border-radius: 999px; color: #bbf7d0; background: rgba(52, 211, 153, .1); font-size: 12px; font-weight: 900; }
       .link-button { border: 0; color: #bae6fd; background: transparent; font-weight: 900; }
+      .button[disabled], button[disabled] { cursor: not-allowed; opacity: .58; filter: saturate(.75); }
+      .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid rgba(2, 6, 23, .24); border-top-color: #06111f; border-radius: 999px; vertical-align: -2px; animation: spin .8s linear infinite; }
+      .button.secondary .spinner { border-color: rgba(226,232,240,.24); border-top-color: #e2e8f0; }
+      @keyframes spin { to { transform: rotate(360deg); } }
       .hidden { display: none !important; }
       .dialog { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2, 6, 23, .72); z-index: 20; }
       .dialog.open { display: flex; }
@@ -259,6 +264,8 @@
         set resumeHistory(v){ localStorage.setItem(`busca-vagas-static-resume-history-${this.profile}`, JSON.stringify(v.slice(0, 10))); },
         get aiUsage(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-ai-usage-${this.profile}`) || '{}'); },
         set aiUsage(v){ localStorage.setItem(`busca-vagas-static-ai-usage-${this.profile}`, JSON.stringify(v)); },
+        get aiResumes(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-ai-resumes-${this.profile}`) || '{}'); },
+        set aiResumes(v){ localStorage.setItem(`busca-vagas-static-ai-resumes-${this.profile}`, JSON.stringify(v)); },
         get saved(){ return JSON.parse(localStorage.getItem('busca-vagas-static-saved') || '{}'); },
         set saved(v){ localStorage.setItem('busca-vagas-static-saved', JSON.stringify(v)); },
       };
@@ -292,13 +299,34 @@
         usage[todayKey()] = aiUsageToday() + 1;
         store.aiUsage = usage;
       }
+      const aiKey = (job) => `${store.profile}:${job.id}`;
+      const savedAiResume = (job) => store.aiResumes[aiKey(job)] || null;
+      function saveAiResume(job, data) {
+        const resumes = store.aiResumes;
+        resumes[aiKey(job)] = {
+          text: data.resume,
+          summary: data.summary || 'Currículo gerado com IA.',
+          matchedKeywords: data.matchedKeywords || [],
+          attentionPoints: data.attentionPoints || [],
+          model: data.model || '',
+          createdAt: new Date().toISOString(),
+          estimatedCredits: 1,
+        };
+        store.aiResumes = resumes;
+      }
+      function aiUsageSummary() {
+        const items = Object.values(store.aiResumes);
+        const spent = items.reduce((total, item) => total + Number(item.estimatedCredits || 1), 0);
+        return `Uso IA ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} hoje · ${spent} crédito(s) local(is) estimado(s) em ${items.length} currículo(s).`;
+      }
       function aiEligibility(job) {
         const score = assess(job);
+        if (savedAiResume(job)) return { allowed: false, reason: `Currículo já otimizado com IA para esta vaga. ${aiUsageSummary()}` };
         if (!store.resume.trim()) return { allowed: false, reason: 'Importe seu currículo-base antes de usar IA.' };
         if (score === null) return { allowed: false, reason: 'A IA é liberada depois que a compatibilidade puder ser calculada.' };
         if (score < aiMinimumScore) return { allowed: false, reason: `Economia ativada: use IA só em vagas com ${aiMinimumScore}% ou mais de match. Esta está com ${score}%.` };
         if (aiUsageToday() >= aiDailyLimit) return { allowed: false, reason: `Limite diário da ${activeProfile().name}: ${aiUsageToday()}/${aiDailyLimit} gerações usadas hoje.` };
-        return { allowed: true, reason: `Recomendado gerar com IA: ${score}% de match. Uso hoje: ${aiUsageToday()}/${aiDailyLimit}.` };
+        return { allowed: true, reason: `Recomendado gerar com IA: ${score}% de match. ${aiUsageSummary()}` };
       }
       const optimizedResumeText = (job) => {
         const profile = activeProfile();
@@ -334,7 +362,8 @@ ${base}`;
       const card = (job) => {
         const score = assess(job);
         const saved = !!store.saved[`${store.profile}:${job.id}`];
-        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3><div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
+        const aiDone = !!savedAiResume(job);
+        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3>${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
       };
       function render() {
         const profile = activeProfile();
@@ -479,8 +508,11 @@ ${base}`;
         const score = assess(job);
         $('modal-company').textContent = job.company;
         $('modal-title').textContent = job.title;
+        const existingAi = savedAiResume(job);
         const eligibility = aiEligibility(job);
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(optimizedResumeText(job))}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>Gerar com IA</button><button id="download-resume-pdf" class="button secondary">Baixar PDF otimizado</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${eligibility.reason}</p>`;
+        const resumeText = existingAi?.text || optimizedResumeText(job);
+        const sourceLink = job.url ? `<a class="button secondary" href="${escapeHtml(job.url)}" target="_blank" rel="noreferrer">Abrir vaga original ↗</a>` : '<span class="file-note">Link original não disponível para esta vaga.</span>';
+        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div><h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -524,8 +556,10 @@ ${base}`;
           return;
         }
         const button = $('generate-ai-resume');
+        const originalLabel = button.textContent;
         button.disabled = true;
-        $('ai-status').textContent = 'Gerando currículo com IA...';
+        button.innerHTML = '<span class="spinner"></span>Gerando com IA...';
+        $('ai-status').textContent = 'Gerando currículo com IA. Aguarde, isso pode levar alguns segundos...';
         try {
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData.session?.access_token;
@@ -550,7 +584,10 @@ ${base}`;
           if (!response.ok) throw new Error(data.details || data.error || 'Não foi possível gerar com IA.');
           if (!data.resume) throw new Error('A IA não retornou um currículo editável.');
           $('optimized-resume').value = data.resume;
+          saveAiResume(selectedJob, data);
           registerAiUsage();
+          button.textContent = 'IA já gerou esta vaga';
+          button.disabled = true;
           const keywords = data.matchedKeywords?.length ? ` Palavras-chave: ${data.matchedKeywords.slice(0, 8).join(', ')}.` : '';
           const attention = data.attentionPoints?.length ? ` Atenção: ${data.attentionPoints.slice(0, 3).join(' | ')}` : '';
           $('ai-status').textContent = `${data.summary || 'Currículo gerado com IA.'}${keywords}${attention}`;
@@ -558,42 +595,61 @@ ${base}`;
           console.error('Erro ao gerar currículo com IA:', error);
           $('ai-status').textContent = error.message || 'Não foi possível gerar com IA agora.';
         } finally {
-          button.disabled = false;
+          if (!savedAiResume(selectedJob)) {
+            button.disabled = false;
+            button.textContent = originalLabel;
+          }
+          render();
         }
       }
       async function downloadOptimizedPdf() {
-        const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
-        const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
-        const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-        const margin = 48;
-        const width = pdf.internal.pageSize.getWidth() - margin * 2;
-        const height = pdf.internal.pageSize.getHeight();
-        const lines = pdf.splitTextToSize(text, width);
-        let y = margin;
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(11);
-        for (const line of lines) {
-          if (y > height - margin) { pdf.addPage(); y = margin; }
-          pdf.text(line, margin, y);
-          y += 16;
+        const button = $('download-resume-pdf');
+        const originalLabel = button?.textContent;
+        if (button) { button.disabled = true; button.innerHTML = '<span class="spinner"></span>Gerando PDF...'; }
+        try {
+          const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
+          const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
+          const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+          const margin = 48;
+          const width = pdf.internal.pageSize.getWidth() - margin * 2;
+          const height = pdf.internal.pageSize.getHeight();
+          const lines = pdf.splitTextToSize(text, width);
+          let y = margin;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(11);
+          for (const line of lines) {
+            if (y > height - margin) { pdf.addPage(); y = margin; }
+            pdf.text(line, margin, y);
+            y += 16;
+          }
+          const name = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
+          pdf.save(name);
+        } finally {
+          if (button) { button.disabled = false; button.textContent = originalLabel; }
         }
-        const name = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
-        pdf.save(name);
       }
       async function loadRemote() {
+        const button = $('sync');
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span>Atualizando...';
         try {
           const response = await fetch('https://remotive.com/api/remote-jobs?category=software-dev');
           const data = await response.json();
-          remoteJobs = (data.jobs || []).slice(0, 18).map(j => ({ id:`remotive-${j.id}`, title:j.title, company:j.company_name, role:/full/i.test(j.title) ? 'Full Stack' : 'Front-end', level:/junior|jr/i.test(j.title) ? 'Júnior' : 'Não informada', mode:'Remoto', location:j.candidate_required_location || 'Remoto', salary:j.salary || 'Não informada', source:'Remotive', published:j.publication_date || new Date().toISOString(), tags:['React','JavaScript','TypeScript','CSS'].filter(t => norm(j.title + ' ' + j.description).includes(norm(t))), description:(j.description || '').replace(/<[^>]+>/g,' ').slice(0,220) + '...' }));
+          remoteJobs = (data.jobs || []).slice(0, 18).map(j => ({ id:`remotive-${j.id}`, title:j.title, company:j.company_name, role:/full/i.test(j.title) ? 'Full Stack' : 'Front-end', level:/junior|jr/i.test(j.title) ? 'Júnior' : 'Não informada', mode:'Remoto', location:j.candidate_required_location || 'Remoto', salary:j.salary || 'Não informada', source:'Remotive', published:j.publication_date || new Date().toISOString(), url:j.url, tags:['React','JavaScript','TypeScript','CSS'].filter(t => norm(j.title + ' ' + j.description).includes(norm(t))), description:(j.description || '').replace(/<[^>]+>/g,' ').slice(0,220) + '...' }));
           render();
         } catch {}
+        finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
       }
       document.addEventListener('click', async (event) => {
         const target = event.target.closest('button, a');
         if (!target) return;
         if (target.dataset.view) { currentView = target.dataset.view; render(); }
         if (target.dataset.profile) { store.profile = target.dataset.profile; currentView = 'jobs'; render(); }
-        if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; saved[key] = !saved[key]; store.saved = saved; render(); }
+        if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; target.disabled = true; target.innerHTML = '<span class="spinner"></span>'; saved[key] = !saved[key]; store.saved = saved; render(); }
         if (target.dataset.open) openJob(target.dataset.open);
         if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
