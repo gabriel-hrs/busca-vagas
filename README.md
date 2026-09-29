@@ -105,6 +105,10 @@ Os anúncios de demonstração são fictícios e identificados como tais. Não r
 
 Documentação oficial: [Remotive](https://github.com/remotive-com/remote-jobs-api), [LinkedIn](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access), [Indeed](https://docs.indeed.com/).
 
+### Newsletter Indeed
+
+A newsletter do Indeed chega por e-mail, então o GitHub Pages não consegue integrá-la sozinho. As opções seguras são: conectar Gmail/Outlook por plugin/backend, criar uma regra de encaminhamento para uma Supabase Edge Function que extraia links de vagas, ou colar/importar manualmente o conteúdo do e-mail. Não coloque senha de e-mail nem token privado no frontend.
+
 
 ## Geração com IA generativa
 
