@@ -222,9 +222,9 @@
             <h2>Fontes de vagas</h2>
             <p style="color:var(--muted)">Esta versão estática tenta carregar fontes públicas com CORS liberado no navegador. Se uma fonte bloquear, as demais continuam funcionando.</p>
             <div class="jobs" style="margin-top:18px">
-              <article class="job"><h3>Automáticas no app</h3><p>Remotive, Himalayas, Remote OK, FrontendBR, We Work Remotely, Working Nomads e Jobicy.</p><a class="link-button" href="https://remotive.com/" target="_blank" rel="noreferrer">Abrir Remotive ↗</a></article>
+              <article class="job"><h3>Automáticas no app</h3><p>Remotive, Himalayas, Remote OK, FrontendBR, We Work Remotely, Working Nomads, Jobicy, Remote.co, Dribbble, Hubstaff Talent e SoyFreelancer.</p><a class="link-button" href="https://remotive.com/" target="_blank" rel="noreferrer">Abrir Remotive ↗</a></article>
               <article class="job"><h3>Newsletter Indeed</h3><p>O GitHub Pages não lê sua caixa de e-mail. Para automatizar newsletter, precisa conectar Gmail/Outlook ou encaminhar para uma função parser.</p><a class="link-button" href="https://br.indeed.com/" target="_blank" rel="noreferrer">Abrir Indeed ↗</a></article>
-              <article class="job"><h3>Portais fechados</h3><p>LinkedIn, Indeed, Upwork, Fiverr, Revelo e similares exigem conta, parceiro aprovado, scraping proibido ou importação manual.</p><a class="link-button" href="https://www.linkedin.com/jobs/" target="_blank" rel="noreferrer">Abrir LinkedIn ↗</a></article>
+              <article class="job"><h3>Portais fechados</h3><p>LinkedIn, Indeed, Wellfound, Authentic Jobs, Upwork, Fiverr, Revelo e similares exigem conta, API key, parceiro aprovado, scraping proibido ou importação manual. Namelix, Feedcoyote e Kickresume não são fontes diretas de vagas.</p><a class="link-button" href="https://www.linkedin.com/jobs/" target="_blank" rel="noreferrer">Abrir LinkedIn ↗</a></article>
             </div>
           </div>
         </section>
@@ -745,6 +745,37 @@ ${base}`;
           return { title: pick('title'), link: pick('link'), description: pick('description'), pubDate: pick('pubDate'), region: pick('region') };
         });
       }
+      const resolveUrl = (base, href) => {
+        try { return new URL(href || '', base).toString(); } catch { return href || ''; }
+      };
+      const cleanText = (value) => (value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const parseHtml = (html) => new DOMParser().parseFromString(html, 'text/html');
+      function htmlJobCards(html, baseUrl, selectors, source) {
+        const doc = parseHtml(html);
+        const cards = selectors.cards.flatMap(selector => [...doc.querySelectorAll(selector)]);
+        return cards.slice(0, selectors.limit || 40).map((card, index) => {
+          const anchor = selectors.link.map(selector => card.matches(selector) ? card : card.querySelector(selector)).find(Boolean) || card.querySelector('a[href]');
+          const titleNode = selectors.title.map(selector => card.querySelector(selector)).find(Boolean) || anchor;
+          const companyNode = selectors.company.map(selector => card.querySelector(selector)).find(Boolean);
+          const locationNode = selectors.location.map(selector => card.querySelector(selector)).find(Boolean);
+          const descriptionNode = selectors.description.map(selector => card.querySelector(selector)).find(Boolean);
+          const href = anchor?.getAttribute('href') || '';
+          const url = resolveUrl(baseUrl, href);
+          const title = cleanText(titleNode?.textContent || anchor?.textContent || '');
+          if (!title || !url || /login|sign in|post a job|employer|pricing/i.test(title)) return null;
+          return toStaticJob({
+            id: `${source.toLowerCase().replace(/\W+/g, '-')}-${index}-${norm(url).replace(/\W+/g, '-')}`,
+            title,
+            company: cleanText(companyNode?.textContent || '') || source,
+            location: cleanText(locationNode?.textContent || '') || 'Remoto',
+            description: cleanText(descriptionNode?.textContent || card.textContent || title),
+            url,
+            source,
+            published: new Date().toISOString(),
+          });
+        }).filter(Boolean);
+      }
+
       async function fetchRemotiveStatic() {
         const data = await fetchJson('https://remotive.com/api/remote-jobs?category=software-dev');
         return (data.jobs || []).slice(0, 35).map(j => toStaticJob({ id: `remotive-${j.id}`, title: j.title, company: j.company_name, location: j.candidate_required_location || 'Remoto', description: j.description || '', url: j.url, source: 'Remotive', published: j.publication_date, salary: j.salary || 'Salário não informado' }));
@@ -776,18 +807,71 @@ ${base}`;
         return (data.jobs || []).map(j => toStaticJob({ id: `jobicy-${j.id}`, title: j.jobTitle, company: j.companyName, location: j.jobGeo || 'Remoto', description: j.jobDescription || '', url: j.url, source: 'Jobicy', published: j.pubDate, salary: j.annualSalaryMin || j.annualSalaryMax ? `${j.salaryCurrency || 'USD'} ${j.annualSalaryMin || ''}${j.annualSalaryMin && j.annualSalaryMax ? ' - ' : ''}${j.annualSalaryMax || ''}` : 'Salário não informado', tags: j.jobIndustry || [] }));
       }
 
+      async function fetchRemoteCoStatic() {
+        const html = await fetchText('https://remote.co/remote-jobs/developer/');
+        return htmlJobCards(html, 'https://remote.co/remote-jobs/developer/', {
+          cards: ['.card', '.job_listing', 'article', 'li'],
+          link: ['a[href*="/remote-jobs/"]', 'a[href*="/job/"]'],
+          title: ['h2', 'h3', '.card-title', '.job-title', 'a[href*="/remote-jobs/"]'],
+          company: ['.company', '.company-name', '.m-0.text-secondary'],
+          location: ['.location', '.job-location', '.badge'],
+          description: ['p', '.description', '.excerpt'],
+          limit: 35,
+        }, 'Remote.co');
+      }
+      async function fetchDribbbleStatic() {
+        const html = await fetchText('https://dribbble.com/jobs');
+        return htmlJobCards(html, 'https://dribbble.com/jobs', {
+          cards: ['[class*="job"]', 'article', 'li'],
+          link: ['a[href*="/jobs/"]'],
+          title: ['h2', 'h3', '[class*="title"]', 'a[href*="/jobs/"]'],
+          company: ['[class*="company"]', '[class*="employer"]'],
+          location: ['[class*="location"]', '[class*="remote"]'],
+          description: ['p', '[class*="description"]'],
+          limit: 35,
+        }, 'Dribbble');
+      }
+      async function fetchHubstaffTalentStatic() {
+        const query = store.profile === 'milena' ? 'ui ux designer' : 'frontend developer';
+        const url = `https://hubstafftalent.net/search/profiles?search%5Bkeywords%5D=${encodeURIComponent(query)}&search%5Btype%5D=jobs`;
+        const html = await fetchText(url);
+        return htmlJobCards(html, url, {
+          cards: ['.profile', '.job', '.result', 'article', 'li'],
+          link: ['a[href*="/jobs/"]', 'a[href*="/profiles/"]'],
+          title: ['h2', 'h3', '.title', 'a[href*="/jobs/"]', 'a[href*="/profiles/"]'],
+          company: ['.company', '.name', '.client-name'],
+          location: ['.location', '.country'],
+          description: ['p', '.description', '.summary'],
+          limit: 30,
+        }, 'Hubstaff Talent');
+      }
+      async function fetchSoyFreelancerStatic() {
+        const query = store.profile === 'milena' ? 'diseno ux ui' : 'frontend react';
+        const url = `https://www.soyfreelancer.com/trabajos/?q=${encodeURIComponent(query)}`;
+        const html = await fetchText(url);
+        return htmlJobCards(html, url, {
+          cards: ['.project', '.job', '.card', 'article', 'li'],
+          link: ['a[href*="/trabajo/"]', 'a[href*="/proyecto/"]', 'a[href*="/jobs/"]'],
+          title: ['h2', 'h3', '.title', 'a[href*="/trabajo/"]', 'a[href*="/proyecto/"]'],
+          company: ['.company', '.user', '.client'],
+          location: ['.location', '.country'],
+          description: ['p', '.description', '.summary'],
+          limit: 30,
+        }, 'SoyFreelancer');
+      }
+
       async function loadRemote() {
         const button = $('sync');
         const originalLabel = button.textContent;
         button.disabled = true;
-        button.innerHTML = '<span class="spinner"></span>Buscando em 7 fontes...';
+        button.innerHTML = '<span class="spinner"></span>Buscando em 11 fontes...';
         try {
-          const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic];
+          const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic, fetchRemoteCoStatic, fetchDribbbleStatic, fetchHubstaffTalentStatic, fetchSoyFreelancerStatic];
           const results = await Promise.allSettled(fetchers.map(fn => fn()));
           const jobs = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
           remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title })).filter(compatibleStaticJob)).slice(0, 80);
           const loaded = results.filter(result => result.status === 'fulfilled').length;
-          button.textContent = `Atualizar vagas (${loaded}/7 fontes)`;
+          button.textContent = `Atualizar vagas (${loaded}/11 fontes)`;
           render();
         } catch (error) {
           console.error('Erro ao atualizar vagas:', error);
