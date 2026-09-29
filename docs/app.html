@@ -380,7 +380,8 @@
       const todayKey = () => new Date().toISOString().slice(0, 10);
       const activeProfile = () => profiles[store.profile];
       const pool = () => [...demoJobs, ...remoteJobs];
-      const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role));
+      const isDemoJob = (job) => job.source === 'Demonstração';
+      const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role) && (isDemoJob(j) || compatibleStaticJob(j)));
       const resumeText = () => `${store.resume} ${activeProfile().skills.join(' ')}`;
       function jobRequirements(job) {
         const text = `${job.title} ${job.description} ${job.tags.join(' ')}`;
@@ -990,7 +991,7 @@ ${base}`;
           const fetchers = [fetchRemotiveStatic, fetchHimalayasStatic, fetchRemoteOkStatic, fetchFrontendBrStatic, fetchWeWorkRemotelyStatic, fetchWorkingNomadsStatic, fetchJobicyStatic, fetchGreenhouseAtsStatic, fetchLeverAtsStatic, fetchRemoteCoStatic, fetchDribbbleStatic, fetchHubstaffTalentStatic, fetchSoyFreelancerStatic];
           const results = await Promise.allSettled(fetchers.map(fn => fn()));
           const jobs = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-          remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title })).filter(compatibleStaticJob)).slice(0, 80);
+          remoteJobs = dedupeStaticJobs(jobs.map(job => ({ ...job, description: job.description || job.title }))).slice(0, 180);
           const loaded = results.filter(result => result.status === 'fulfilled').length;
           button.textContent = `Atualizar vagas (${loaded}/13 fontes)`;
           render();
