@@ -86,8 +86,11 @@
       .stat strong { display: block; margin-top: 8px; font-size: 34px; letter-spacing: -.05em; }
       .callout { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px; border: 1px solid rgba(251, 191, 36, .34); border-radius: 24px; color: #fde68a; background: rgba(251, 191, 36, .08); margin-bottom: 24px; }
       .callout p { margin: 4px 0 0; color: #fef3c7; }
-      .toolbar { display: grid; grid-template-columns: 1fr repeat(4, minmax(130px, 170px)); gap: 10px; margin-bottom: 18px; }
+      .filter-bar { position: sticky; top: 14px; z-index: 10; margin-bottom: 18px; padding: 12px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 22px; background: rgba(2, 6, 23, .82); box-shadow: 0 18px 50px rgba(0,0,0,.28); backdrop-filter: blur(14px); }
+      .toolbar { display: grid; grid-template-columns: 1fr repeat(4, minmax(130px, 170px)); gap: 10px; }
       .toolbar input, .toolbar select, textarea { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: #0f172a; outline: 0; }
+      .to-top { position: fixed; right: 22px; bottom: 22px; z-index: 30; min-height: 44px; padding: 0 16px; border: 1px solid rgba(56,189,248,.42); border-radius: 999px; color: #06111f; background: linear-gradient(90deg, var(--brand), var(--brand-2)); font-weight: 950; box-shadow: 0 18px 60px rgba(0,0,0,.34); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .18s ease, transform .18s ease; }
+      .to-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
       .jobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
       .job { padding: 18px; display: flex; flex-direction: column; gap: 13px; }
       .job-top { display: flex; justify-content: space-between; gap: 12px; }
@@ -149,6 +152,8 @@
         aside { position: static; height: auto; }
         .jobs, .stats { grid-template-columns: 1fr; }
         .toolbar { grid-template-columns: 1fr; }
+        .filter-bar { top: 8px; border-radius: 18px; }
+        .to-top { right: 14px; bottom: 14px; }
         .hero { align-items: start; flex-direction: column; }
       }
     </style>
@@ -199,12 +204,14 @@
             <div class="stat"><span>Vagas salvas</span><strong id="stat-saved">0</strong></div>
           </div>
           <div id="resume-callout" class="callout"><div><strong>Adicione seu currículo para melhorar o match.</strong><p>A compatibilidade compara habilidades da vaga com seu currículo e suas competências.</p></div><button class="button secondary" data-view="resume">Adicionar currículo</button></div>
-          <div class="toolbar">
-            <input id="search" placeholder="Buscar cargo, empresa ou tecnologia..." />
-            <select id="mode"><option value="Todas">Modalidade</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
-            <select id="level"><option value="Todas">Senioridade</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Não informada</option></select>
-            <select id="date-filter"><option value="all">Qualquer data</option><option value="1">Hoje</option><option value="3">Últimos 3 dias</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
-            <select id="sort"><option value="match">Mais compatíveis</option><option value="recent">Mais recentes</option></select>
+          <div class="filter-bar" id="filter-bar">
+            <div class="toolbar">
+              <input id="search" placeholder="Buscar cargo, empresa ou tecnologia..." />
+              <select id="mode"><option value="Todas">Modalidade</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
+              <select id="level"><option value="Todas">Senioridade</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Não informada</option></select>
+              <select id="date-filter"><option value="all">Qualquer data</option><option value="1">Hoje</option><option value="3">Últimos 3 dias</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
+              <select id="sort"><option value="match">Mais compatíveis</option><option value="recent">Mais recentes</option></select>
+            </div>
           </div>
           <div id="jobs" class="jobs"></div>
           <div id="empty" class="empty hidden">Nenhuma vaga encontrada com esses filtros.</div>
@@ -245,6 +252,7 @@
       </main>
     </div>
 
+    <button id="to-top" class="to-top" type="button">↑ Topo</button>
     <div id="dialog" class="dialog"><div class="modal"><div class="modal-head"><div><small id="modal-company" style="color:var(--muted)"></small><h2 id="modal-title"></h2></div><button id="close" class="close">×</button></div><div id="modal-body"></div></div></div>
 
     <script src="./auth-config.js"></script>
@@ -1148,6 +1156,8 @@ ${base}`;
           $('file-status').textContent = error?.message?.includes('OCR') ? 'Não foi possível carregar o OCR. Confira a internet ou use TXT.' : 'Não foi possível ler o arquivo. Tente outro PDF pesquisável, aguarde o OCR ou use TXT.';
         }
       });
+      $('to-top').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      window.addEventListener('scroll', () => $('to-top').classList.toggle('visible', window.scrollY > 520), { passive: true });
       $('sync').addEventListener('click', loadRemote);
       $('close').addEventListener('click', () => $('dialog').classList.remove('open'));
       $('dialog').addEventListener('click', e => { if (e.target.id === 'dialog') $('dialog').classList.remove('open'); });
