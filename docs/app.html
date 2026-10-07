@@ -773,20 +773,103 @@ ${base}`;
           const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
           const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
           const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-          const margin = 48;
-          const width = pdf.internal.pageSize.getWidth() - margin * 2;
-          const height = pdf.internal.pageSize.getHeight();
-          const lines = pdf.splitTextToSize(text, width);
-          let y = margin;
-          pdf.setFont('helvetica', 'normal');
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const marginX = 34;
+          const marginTop = 36;
+          const marginBottom = 38;
+          const contentWidth = pageWidth - marginX * 2;
+          const blue = [14, 116, 144];
+          const dark = [17, 24, 39];
+          const muted = [75, 85, 99];
+          let y = marginTop;
+          const rawLines = text.split(/\r?\n/).map(line => stripHtml(line).trim());
+          const nonEmpty = rawLines.filter(Boolean);
+          const sectionTitles = ['OBJETIVO PROFISSIONAL', 'RESUMO PROFISSIONAL', 'COMPETÊNCIAS TÉCNICAS', 'COMPETENCIAS TECNICAS', 'EXPERIÊNCIA PROFISSIONAL', 'EXPERIENCIA PROFISSIONAL', 'FORMAÇÃO', 'FORMACAO', 'IDIOMAS', 'CERTIFICAÇÕES', 'CERTIFICACOES', 'PROJETOS', 'CURRÍCULO OTIMIZADO', 'CURRICULO OTIMIZADO'];
+          const isSectionTitle = (line) => {
+            const normalized = norm(line).toUpperCase();
+            return sectionTitles.some(title => norm(title).toUpperCase() === normalized) || (/^[A-ZÀ-Ú0-9 &/.-]{4,55}$/.test(line) && !/[.:,]$/.test(line));
+          };
+          const ensureSpace = (amount = 18) => {
+            if (y + amount <= pageHeight - marginBottom) return;
+            pdf.addPage();
+            y = marginTop;
+          };
+          const writeWrapped = (value, options = {}) => {
+            const font = options.font || 'times';
+            const style = options.style || 'normal';
+            const size = options.size || 10.5;
+            const lineHeight = options.lineHeight || 14;
+            const indent = options.indent || 0;
+            const color = options.color || dark;
+            pdf.setFont(font, style);
+            pdf.setFontSize(size);
+            pdf.setTextColor(...color);
+            const lines = pdf.splitTextToSize(value, contentWidth - indent);
+            for (const line of lines) {
+              ensureSpace(lineHeight + 2);
+              pdf.text(line, marginX + indent, y);
+              y += lineHeight;
+            }
+          };
+          const writeSection = (title) => {
+            ensureSpace(30);
+            y += y === marginTop ? 0 : 12;
+            pdf.setDrawColor(14, 116, 144);
+            pdf.setLineWidth(1.2);
+            pdf.line(marginX, y - 8, pageWidth - marginX, y - 8);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(10.5);
+            pdf.setTextColor(...blue);
+            pdf.text(title.toUpperCase(), marginX, y + 5);
+            y += 22;
+          };
+          const headerLines = [];
+          while (nonEmpty.length && !isSectionTitle(nonEmpty[0]) && headerLines.length < 4) headerLines.push(nonEmpty.shift());
+          const name = headerLines.shift() || profiles[store.profile].name.toUpperCase();
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(20);
+          pdf.setTextColor(...dark);
+          pdf.text(name.toUpperCase(), marginX, y);
+          y += 20;
+          pdf.setFont('times', 'normal');
           pdf.setFontSize(11);
-          for (const line of lines) {
-            if (y > height - margin) { pdf.addPage(); y = margin; }
-            pdf.text(line, margin, y);
-            y += 16;
+          pdf.setTextColor(...muted);
+          headerLines.forEach(line => { pdf.text(line, marginX, y); y += 14; });
+          y += 10;
+          let previousWasBlank = false;
+          for (const originalLine of rawLines) {
+            const line = originalLine.trim();
+            if (!line) { previousWasBlank = true; continue; }
+            if (line === name || headerLines.includes(line)) continue;
+            if (isSectionTitle(line)) {
+              writeSection(line);
+              previousWasBlank = false;
+              continue;
+            }
+            if (previousWasBlank) y += 5;
+            if (/^[-•*]\s+/.test(line)) {
+              writeWrapped(`• ${line.replace(/^[-•*]\s+/, '')}`, { indent: 12, lineHeight: 13.5 });
+            } else if (/^[^:]{2,42}:\s+/.test(line)) {
+              const [label, ...rest] = line.split(':');
+              writeWrapped(`${label.trim()}: ${rest.join(':').trim()}`, { font: 'times', style: 'normal', lineHeight: 14 });
+            } else if (/\|\s*\d{4}|\d{4}\s*-/.test(line) || /^[A-ZÀ-Ú][\wÀ-ÿ .&-]{2,70}$/.test(line)) {
+              writeWrapped(line, { font: 'helvetica', style: 'bold', size: 10.8, lineHeight: 15, color: dark });
+            } else {
+              writeWrapped(line, { lineHeight: 14 });
+            }
+            previousWasBlank = false;
           }
-          const name = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
-          pdf.save(name);
+          const totalPages = pdf.getNumberOfPages();
+          for (let page = 1; page <= totalPages; page += 1) {
+            pdf.setPage(page);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+            pdf.setTextColor(156, 163, 175);
+            pdf.text(`Busca Vagas · currículo otimizado · página ${page}/${totalPages}`, marginX, pageHeight - 18);
+          }
+          const nameFile = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
+          pdf.save(nameFile);
         } finally {
           if (button) { button.disabled = false; button.textContent = originalLabel; }
         }
