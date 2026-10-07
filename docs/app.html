@@ -125,7 +125,7 @@
       .file-note { color: var(--muted); font-size: 13px; line-height: 1.45; }
       .resume-current { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(2, 6, 23, .34); }
       .resume-current strong { display: block; margin-bottom: 4px; }
-      .resume-current small { color: var(--muted); }
+      .resume-current small { color: var(--muted); white-space: pre-wrap; }
       .history-list { display: grid; gap: 10px; margin-top: 16px; }
       .history-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(2, 6, 23, .26); }
       .history-item strong { display: block; }
@@ -243,6 +243,17 @@
           <div class="panel" style="padding:24px">
             <h2>Meu LinkedIn</h2>
             <p style="color:var(--muted)">Sugestões práticas para melhorar seu perfil: onde editar, o que ajustar e textos otimizados prontos para copiar.</p>
+            <div class="resume-current">
+              <div>
+                <strong>Portfólio, GitHub e projetos reais</strong>
+                <small>Cole um link ou projeto por linha. A área de Destaques usa esta lista junto com seu currículo importado.</small>
+              </div>
+              <button id="save-linkedin-portfolio" class="button secondary" type="button">Salvar portfólio</button>
+              <textarea id="linkedin-portfolio" rows="4" placeholder="Ex.: https://meuportfolio.com
+Projeto: Landing page para campanha X — React, performance e SEO
+GitHub: https://github.com/..." style="flex-basis:100%;min-height:110px;padding-top:12px"></textarea>
+              <small id="linkedin-portfolio-status" class="file-note"></small>
+            </div>
             <div id="linkedin-sections" class="source-list"></div>
           </div>
         </section>
@@ -348,6 +359,8 @@
         set aiResumes(v){ localStorage.setItem(`busca-vagas-static-ai-resumes-${this.profile}`, JSON.stringify(v)); },
         get applications(){ return JSON.parse(localStorage.getItem(`busca-vagas-static-applications-${this.profile}`) || '{}'); },
         set applications(v){ localStorage.setItem(`busca-vagas-static-applications-${this.profile}`, JSON.stringify(v)); },
+        get linkedinPortfolio(){ return localStorage.getItem(`busca-vagas-static-linkedin-portfolio-${this.profile}`) || ''; },
+        set linkedinPortfolio(v){ localStorage.setItem(`busca-vagas-static-linkedin-portfolio-${this.profile}`, v); },
         get saved(){ return JSON.parse(localStorage.getItem('busca-vagas-static-saved') || '{}'); },
         set saved(v){ localStorage.setItem('busca-vagas-static-saved', JSON.stringify(v)); },
       };
@@ -522,10 +535,38 @@ ${base}`;
         jobs.sort((a,b) => $('sort').value === 'recent' ? parsePublished(b.published) - parsePublished(a.published) : (assess(b) ?? -1) - (assess(a) ?? -1));
         return jobs.slice(0, 120);
       };
+      function extractResumeSection(resume, starts, stops = []) {
+        const lines = resume.split(/\r?\n/).map(line => stripHtml(line).trim()).filter(Boolean);
+        const startIndex = lines.findIndex(line => starts.some(start => norm(line).includes(norm(start))));
+        if (startIndex === -1) return '';
+        const afterStart = lines.slice(startIndex + 1);
+        const stopIndex = afterStart.findIndex(line => stops.some(stop => norm(line).includes(norm(stop))));
+        return (stopIndex === -1 ? afterStart : afterStart.slice(0, stopIndex)).slice(0, 18).join('\n');
+      }
+      function portfolioItems() {
+        return store.linkedinPortfolio.split(/\r?\n/).map(item => item.trim()).filter(Boolean).slice(0, 8);
+      }
+      function realisticExperienceText(fallback) {
+        const resume = stripHtml(store.resume || '');
+        const section = extractResumeSection(resume, ['experiência profissional', 'experiencia profissional', 'experiências', 'experiencias'], ['formação', 'formacao', 'educação', 'educacao', 'competências', 'competencias', 'habilidades', 'projetos', 'cursos']);
+        if (!section) return fallback;
+        return `Baseado no currículo importado, use a experiência real como ponto de partida e reescreva cada cargo neste formato:\n\n${section}\n\nModelo para cada cargo no LinkedIn:\n• Contexto: produto, time, tipo de projeto ou cliente.\n• Entregas reais: interfaces, fluxos, componentes, integrações, pesquisas ou documentação que você realmente fez.\n• Ferramentas/tecnologias: cite apenas as que aparecem na sua experiência.\n• Resultado: performance, organização, produtividade, qualidade, conversão ou experiência do usuário quando você tiver evidência.`;
+      }
+      function realisticHighlightsText(fallback) {
+        const items = portfolioItems();
+        const resume = stripHtml(store.resume || '');
+        const projectSection = extractResumeSection(resume, ['projetos', 'portfólio', 'portfolio', 'destaques'], ['experiência', 'experiencia', 'formação', 'formacao', 'educação', 'educacao', 'competências', 'competencias']);
+        if (items.length) {
+          return `Priorize estes itens do seu portfólio nos Destaques do LinkedIn:\n\n${items.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n\nPara cada destaque, escreva uma descrição curta com: problema, sua contribuição, ferramentas usadas e resultado. Se for case visual, use uma imagem forte ou capa do projeto.`;
+        }
+        if (projectSection) {
+          return `Projetos encontrados no currículo para transformar em Destaques:\n\n${projectSection}\n\nSelecione os 2 ou 3 melhores e adicione link, imagem, GitHub, protótipo ou PDF do case. Dê preferência aos projetos mais alinhados com as vagas que você quer.`;
+        }
+        return fallback;
+      }
       function linkedinSuggestions() {
         const profile = activeProfile();
         const resume = stripHtml(store.resume || '');
-        const skillsLine = profile.skills.slice(0, 7).join(' · ');
         const focus = store.profile === 'gabriel'
           ? {
               target: 'Front-end e Full Stack',
@@ -533,6 +574,7 @@ ${base}`;
               about: `Sou desenvolvedor Front-end & Full Stack com foco em criar interfaces web responsivas, performáticas e orientadas à experiência do usuário. Atuo com React, TypeScript, JavaScript, HTML, CSS, Node.js e integração com APIs REST, colaborando com times de produto, design e back-end para transformar necessidades de negócio em soluções digitais claras e escaláveis.\n\nTenho interesse em oportunidades Front-end e Full Stack, principalmente em produtos web, landing pages, componentes reutilizáveis, otimização de performance e evolução contínua de experiências digitais.`,
               experience: `Destaque resultados e contexto, não apenas tarefas. Exemplo:\n• Desenvolvi interfaces web responsivas com React, TypeScript e CSS moderno.\n• Integrei front-end com APIs REST e serviços back-end em Node.js.\n• Colaborei com times de design, produto e back-end em rituais ágeis.\n• Atuei em melhorias de performance, acessibilidade e reutilização de componentes.`,
               skills: ['React', 'TypeScript', 'JavaScript', 'HTML5', 'CSS3', 'Node.js', 'APIs REST', 'Git', 'Scrum', 'Performance Web'],
+              highlights: 'Adicionar GitHub, portfólio, projetos React/TypeScript, landing pages, componentes reutilizáveis e cases com antes/depois ou resultado.',
             }
           : {
               target: 'UI/UX Designer Júnior',
@@ -540,19 +582,22 @@ ${base}`;
               about: `Sou UI/UX Designer Júnior com foco em criar experiências digitais simples, acessíveis e consistentes. Tenho interesse em pesquisa com usuários, desenho de fluxos, wireframes, protótipos em Figma, organização de componentes e documentação visual para apoiar times de produto e tecnologia.\n\nBusco oportunidades júnior em UI/UX para evoluir em projetos digitais, colaborando com designers, desenvolvedores e stakeholders na criação de interfaces claras, usáveis e alinhadas às necessidades das pessoas usuárias.`,
               experience: `Destaque processo e entregáveis. Exemplo:\n• Apoiei a criação de fluxos, wireframes e protótipos navegáveis em Figma.\n• Organizei componentes e padrões visuais para manter consistência de interface.\n• Colaborei em pesquisas, benchmarkings e levantamento de necessidades de usuários.\n• Documentei decisões de design para facilitar handoff com desenvolvimento.`,
               skills: ['Figma', 'UI Design', 'UX Design', 'Prototipação', 'Pesquisa com usuários', 'Wireframes', 'Design System', 'Acessibilidade', 'Handoff', 'Usabilidade'],
+              highlights: 'Adicionar portfólio, cases de UI/UX, protótipos Figma, estudos de caso, redesigns, pesquisas e documentação de design system.',
             };
         const resumeHint = resume ? 'Use seu currículo importado como base para preencher resultados reais, métricas e projetos sem inventar experiência.' : 'Importe seu currículo para cruzar estas sugestões com sua experiência real.';
         return [
           { title: 'Título do perfil', where: 'LinkedIn > Perfil > ícone de lápis no cartão principal > Título', why: 'É uma das primeiras informações vistas por recrutadores e afeta buscas por palavras-chave.', content: focus.headline },
           { title: 'Sobre', where: 'LinkedIn > Perfil > seção Sobre > ícone de lápis', why: `Deixe claro seu foco em ${focus.target}, tecnologias/processo e tipo de oportunidade. ${resumeHint}`, content: focus.about },
-          { title: 'Experiência', where: 'LinkedIn > Perfil > Experiência > editar cada cargo', why: 'Troque descrições genéricas por bullets com ação, tecnologia/processo e impacto. Mantenha apenas experiências reais.', content: focus.experience },
+          { title: 'Experiência', where: 'LinkedIn > Perfil > Experiência > editar cada cargo', why: 'Agora usa a seção de experiência do currículo importado quando ela existe, para deixar o texto realista e evitar inventar resultados.', content: realisticExperienceText(focus.experience) },
           { title: 'Competências', where: 'LinkedIn > Perfil > Competências > adicionar/remover competências', why: 'As competências ajudam o LinkedIn a relacionar seu perfil com vagas e buscas de recrutadores.', content: focus.skills.join(', ') },
-          { title: 'Destaques e projetos', where: 'LinkedIn > Perfil > Adicionar seção > Recomendado > Adicionar destaque', why: 'Use para dar prova visual do seu trabalho: portfólio, GitHub, cases, protótipos, certificados ou projetos.', content: store.profile === 'gabriel' ? 'Adicionar GitHub, portfólio, projetos React/TypeScript, landing pages, componentes reutilizáveis e cases com antes/depois ou resultado.' : 'Adicionar portfólio, cases de UI/UX, protótipos Figma, estudos de caso, redesigns, pesquisas e documentação de design system.' },
+          { title: 'Destaques e projetos', where: 'LinkedIn > Perfil > Adicionar seção > Recomendado > Adicionar destaque', why: 'Agora usa os links/projetos cadastrados no campo de portfólio e, se não houver, tenta aproveitar projetos citados no currículo.', content: realisticHighlightsText(focus.highlights) },
         ];
       }
       function renderLinkedinPanel() {
         const container = $('linkedin-sections');
         if (!container) return;
+        const portfolio = $('linkedin-portfolio');
+        if (portfolio && portfolio.value !== store.linkedinPortfolio) portfolio.value = store.linkedinPortfolio;
         container.innerHTML = linkedinSuggestions().map((item, index) => `<article class="source-card"><div><h3>${escapeHtml(item.title)}</h3><p><strong>Onde editar:</strong> ${escapeHtml(item.where)}</p><p><strong>Melhorar porque:</strong> ${escapeHtml(item.why)}</p><div class="resume-current" style="margin-top:12px"><div><strong>Conteúdo otimizado</strong><small>${escapeHtml(item.content)}</small></div></div></div><button class="button secondary" type="button" data-copy-linkedin="${index}">Copiar</button></article>`).join('');
       }
 
@@ -1161,6 +1206,11 @@ ${base}`;
         if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
         if (target.id === 'copy-resume') navigator.clipboard?.writeText($('optimized-resume')?.value || '');
+        if (target.id === 'save-linkedin-portfolio') {
+          store.linkedinPortfolio = $('linkedin-portfolio')?.value || '';
+          $('linkedin-portfolio-status').textContent = 'Portfólio salvo neste navegador.';
+          renderLinkedinPanel();
+        }
         if (target.dataset.copyLinkedin) {
           const item = linkedinSuggestions()[Number(target.dataset.copyLinkedin)];
           if (item) {
