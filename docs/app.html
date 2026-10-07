@@ -79,7 +79,7 @@
       .tab { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 20px; color: var(--text); background: var(--panel-2); }
       .tab.active { border-color: rgba(56, 189, 248, 0.64); background: rgba(56, 189, 248, 0.12); }
       .tab small { display: block; color: var(--muted); margin-top: 3px; }
-      .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+      .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
       .stat, .panel, .job { border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: 0 18px 60px rgba(0,0,0,.22); }
       .stat { padding: 18px; }
       .stat span { color: var(--muted); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
@@ -195,6 +195,7 @@
           <div class="stats">
             <div class="stat"><span>Vagas para você</span><strong id="stat-total">0</strong></div>
             <div class="stat"><span>Alta compatibilidade</span><strong id="stat-high">0</strong></div>
+            <div class="stat"><span>Vagas novas</span><strong id="stat-new">0</strong></div>
             <div class="stat"><span>Vagas salvas</span><strong id="stat-saved">0</strong></div>
           </div>
           <div id="resume-callout" class="callout"><div><strong>Adicione seu currículo para melhorar o match.</strong><p>A compatibilidade compara habilidades da vaga com seu currículo e suas competências.</p></div><button class="button secondary" data-view="resume">Adicionar currículo</button></div>
@@ -532,6 +533,7 @@ ${base}`;
         const jobs = filteredJobs();
         $('stat-total').textContent = relevant().length.toString().padStart(2,'0');
         $('stat-high').textContent = relevant().filter(j => (assess(j) ?? 0) >= 70).length.toString().padStart(2,'0');
+        $('stat-new').textContent = relevant().filter(j => isWithinDays(j.published, '1')).length.toString().padStart(2,'0');
         $('stat-saved').textContent = Object.keys(store.saved).filter(k => k.startsWith(`${store.profile}:`) && store.saved[k]).length.toString().padStart(2,'0');
         $('jobs').innerHTML = jobs.map(card).join('');
         $('empty').classList.toggle('hidden', jobs.length > 0);
