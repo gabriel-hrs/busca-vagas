@@ -353,6 +353,11 @@
         return foreign || (englishWords && !portugueseWords) ? 'en' : 'pt-BR';
       }
       const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+      const decodeHtml = (value) => {
+        const doc = new DOMParser().parseFromString(String(value || ''), 'text/html');
+        return doc.documentElement.textContent || '';
+      };
+      const stripHtml = (value) => decodeHtml(value).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       const formatDate = (value) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
       const parsePublished = (value) => {
         const time = Date.parse(value || '');
@@ -515,7 +520,7 @@ ${base}`;
         const saved = !!store.saved[`${store.profile}:${job.id}`];
         const aiDone = !!savedAiResume(job);
         const app = applicationState(job);
-        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${job.company[0]}</span><div><strong>${job.company}</strong><small>${job.source}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${job.id}">${saved ? '★' : '☆'}</button></div><h3>${job.title}</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${saved ? `<span class="stage-badge">${app.stage}</span>` : ''}${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}</div><div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${formatJobDate(job.published)}</span></div><p>${job.description}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</div><div class="salary">${job.salary}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${job.id}">Ver vaga ↗</button></div></article>`;
+        return `<article class="job"><div class="job-top"><div class="company"><span class="mark">${escapeHtml(job.company[0])}</span><div><strong>${escapeHtml(job.company)}</strong><small>${escapeHtml(job.source)}</small></div></div><button class="save ${saved ? 'saved' : ''}" data-save="${escapeHtml(job.id)}">${saved ? '★' : '☆'}</button></div><h3>${escapeHtml(job.title)}</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${saved ? `<span class="stage-badge">${escapeHtml(app.stage)}</span>` : ''}${aiDone ? '<span class="ai-badge">Currículo IA pronto</span>' : ''}</div><div class="meta"><span>${escapeHtml(job.location)}</span><span>${escapeHtml(job.mode)}</span><span>${escapeHtml(job.level)}</span><span>${formatJobDate(job.published)}</span></div><p>${escapeHtml(job.description)}</p><div class="tags">${job.tags.slice(0,4).map(t=>`<span>${escapeHtml(t)}</span>`).join('')}</div><div class="salary">${escapeHtml(job.salary)}</div><div class="match"><strong>${score === null ? 'Adicione currículo' : `${score}% match`}</strong><button class="link-button" data-open="${escapeHtml(job.id)}">Ver vaga ↗</button></div></article>`;
       };
       function render() {
         const profile = activeProfile();
@@ -669,7 +674,7 @@ ${base}`;
         const app = applicationState(job);
         const stages = ['Salva', 'Vou me candidatar', 'Candidatura enviada', 'Entrevista', 'Teste técnico', 'Proposta', 'Encerrada'];
         const tracking = `<section class="tracking-panel"><strong>Acompanhamento da vaga</strong><label>Status<select id="application-stage">${stages.map(stage => `<option ${stage === app.stage ? 'selected' : ''}>${stage}</option>`).join('')}</select></label><label>Anotações<textarea id="application-notes" rows="3" placeholder="Ex.: data da candidatura, contato, próximos passos...">${escapeHtml(app.notes || '')}</textarea></label><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button id="save-application" class="button secondary" type="button">Salvar andamento</button><span id="application-status" class="file-note">${app.updatedAt ? `Atualizado em ${formatDate(app.updatedAt)}` : 'Ainda sem atualização de andamento.'}</span></div></section>`;
-        $('modal-body').innerHTML = `<div class="meta"><span>${job.location}</span><span>${job.mode}</span><span>${job.level}</span><span>${job.salary}</span><span>${formatJobDate(job.published)}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${job.description}</p><div class="tags">${job.tags.map(t=>`<span>${t}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div>${tracking}<h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${existingAi.summary || 'Currículo gerado com IA.'} ${aiUsageSummary()}` : eligibility.reason}</p>`;
+        $('modal-body').innerHTML = `<div class="meta"><span>${escapeHtml(job.location)}</span><span>${escapeHtml(job.mode)}</span><span>${escapeHtml(job.level)}</span><span>${escapeHtml(job.salary)}</span><span>${formatJobDate(job.published)}</span></div><h3>${score === null ? 'Compatibilidade pendente' : `${score}% de compatibilidade`}</h3><p>${escapeHtml(job.description)}</p><div class="tags">${job.tags.map(t=>`<span>${escapeHtml(t)}</span>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">${sourceLink}${existingAi ? '<span class="ai-badge">Currículo já otimizado com IA</span>' : ''}</div>${tracking}<h3>Currículo otimizado para esta vaga</h3><p style="color:var(--muted)">${existingAi ? `Versão gerada com IA em ${formatDate(existingAi.createdAt)}. Ela fica salva nesta vaga para evitar novo gasto.` : 'A versão inicial usa regras locais. A IA fica reservada para vagas com maior chance, para controlar custo.'}</p><textarea id="optimized-resume" class="resume-box">${escapeHtml(resumeText)}</textarea><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px"><button id="generate-ai-resume" class="button" ${eligibility.allowed ? '' : 'disabled'}>${existingAi ? 'IA já gerou esta vaga' : 'Gerar com IA'}</button><button id="download-resume-pdf" class="button secondary">${existingAi ? 'Baixar PDF otimizado por IA' : 'Baixar PDF otimizado'}</button><button id="copy-resume" class="button secondary">Copiar texto</button></div><p id="ai-status" class="file-note" style="margin-top:12px">${existingAi ? `${escapeHtml(existingAi.summary || 'Currículo gerado com IA.')} ${aiUsageSummary()}` : escapeHtml(eligibility.reason)}</p>`;
         $('dialog').classList.add('open');
       }
       async function extractPdfText(file, onProgress = () => {}) {
@@ -794,7 +799,7 @@ ${base}`;
         const locationText = norm(`${input.location || ''} ${input.description || ''}`);
         const mode = /hibrid|hybrid/.test(locationText) ? 'Híbrido' : /presencial|on.?site/.test(locationText) ? 'Presencial' : 'Remoto';
         const tags = [...new Set([...(input.tags || []), ...skills.filter(skill => containsSkillText(text, skill))])].slice(0, 10);
-        return { id: input.id, title: (input.title || '').slice(0, 200), company: input.company || 'Empresa não informada', role, level, mode, location: input.location || 'Remoto', salary: input.salary || 'Salário não informado', source: input.source, published: input.published || '', tags, description: (input.description || input.title || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 900), url: input.url || '' };
+        return { id: input.id, title: stripHtml(input.title || '').slice(0, 200), company: stripHtml(input.company || 'Empresa não informada') || 'Empresa não informada', role, level, mode, location: stripHtml(input.location || 'Remoto') || 'Remoto', salary: stripHtml(input.salary || 'Salário não informado') || 'Salário não informado', source: stripHtml(input.source || ''), published: input.published || '', tags: tags.map(stripHtml).filter(Boolean), description: stripHtml(input.description || input.title || '').slice(0, 900), url: input.url || '' };
       }
       function compatibleStaticJob(job) {
         if (!job.url || !activeProfile().wants.includes(job.role)) return false;
@@ -833,7 +838,7 @@ ${base}`;
       const resolveUrl = (base, href) => {
         try { return new URL(href || '', base).toString(); } catch { return href || ''; }
       };
-      const cleanText = (value) => (value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const cleanText = stripHtml;
       const parseHtml = (html) => new DOMParser().parseFromString(html, 'text/html');
       function htmlJobCards(html, baseUrl, selectors, source) {
         const doc = parseHtml(html);
@@ -922,7 +927,7 @@ ${base}`;
             title: job.text,
             company: company.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
             location: job.categories?.location || 'Remoto',
-            description: [job.descriptionPlain, job.additionalPlain, ...(job.lists || []).map(list => `${list.text}: ${(list.content || '').replace(/<[^>]+>/g, ' ')}`)].filter(Boolean).join(' '),
+            description: [job.descriptionPlain, job.additionalPlain, ...(job.lists || []).map(list => `${list.text}: ${stripHtml(list.content || '')}`)].filter(Boolean).join(' '),
             url: job.hostedUrl || job.applyUrl,
             source: 'Lever ATS',
             published: job.createdAt ? new Date(job.createdAt).toISOString() : undefined,
