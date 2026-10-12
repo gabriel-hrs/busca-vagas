@@ -87,7 +87,7 @@
       .callout { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px; border: 1px solid rgba(251, 191, 36, .34); border-radius: 24px; color: #fde68a; background: rgba(251, 191, 36, .08); margin-bottom: 24px; }
       .callout p { margin: 4px 0 0; color: #fef3c7; }
       .filter-bar { position: sticky; top: 14px; z-index: 10; margin-bottom: 18px; padding: 12px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 22px; background: rgba(2, 6, 23, .82); box-shadow: 0 18px 50px rgba(0,0,0,.28); backdrop-filter: blur(14px); }
-      .toolbar { display: grid; grid-template-columns: 1fr repeat(4, minmax(130px, 170px)); gap: 10px; }
+      .toolbar { display: grid; grid-template-columns: 1fr repeat(5, minmax(130px, 170px)); gap: 10px; }
       .toolbar input, .toolbar select, textarea { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: #0f172a; outline: 0; }
       .to-top { position: fixed; right: 22px; bottom: 22px; z-index: 30; min-height: 44px; padding: 0 16px; border: 1px solid rgba(56,189,248,.42); border-radius: 999px; color: #06111f; background: linear-gradient(90deg, var(--brand), var(--brand-2)); font-weight: 950; box-shadow: 0 18px 60px rgba(0,0,0,.34); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .18s ease, transform .18s ease; }
       .to-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
@@ -214,6 +214,7 @@
               <select id="mode"><option value="Todas">Modalidade</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
               <select id="level"><option value="Todas">Senioridade</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Não informada</option></select>
               <select id="date-filter"><option value="all">Qualquer data</option><option value="1">Hoje</option><option value="3">Últimos 3 dias</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
+              <select id="geography-filter" aria-label="Filtrar por localização"><option value="all">Nacionais e internacionais</option><option value="national">Nacionais · Brasil</option><option value="international">Internacionais</option><option value="unknown">Localização indefinida</option></select>
               <select id="sort"><option value="match">Mais compatíveis</option><option value="recent">Mais recentes</option></select>
             </div>
           </div>
@@ -415,6 +416,16 @@ GitHub: https://github.com/..." style="flex-basis:100%;min-height:110px;padding-
         if (!time) return false;
         return Date.now() - time <= Number(days) * 86400000;
       };
+      function jobGeography(job) {
+        const location = norm(job.location || '');
+        const brazilSignals = /\b(brasil|brazil|brasileir[oa]s?|sao paulo|rio de janeiro|belo horizonte|curitiba|porto alegre|florianopolis|brasilia|recife|fortaleza|salvador|campinas|santos|manaus|goiania|belem|vitoria|joao pessoa|natal|maceio|aracaju|teresina|campo grande|cuiaba|ribeirao preto|uberlandia|londrina|maringa)\b/.test(location)
+          || /\b(acre|alagoas|amapa|amazonas|bahia|ceara|distrito federal|espirito santo|goias|maranhao|mato grosso|mato grosso do sul|minas gerais|paraiba|parana|pernambuco|piaui|rio grande do norte|rio grande do sul|rondonia|roraima|santa catarina|sao paulo|sergipe|tocantins)\b/.test(location)
+          || /\b(br|brasil)\b/.test(location);
+        if (brazilSignals) return 'national';
+        const internationalSignals = /\b(usa|u\.s\.a\.?|united states|estados unidos|canada|canada|uk|united kingdom|reino unido|england|inglaterra|ireland|irlanda|germany|alemanha|portugal|spain|espanha|france|franca|italy|italia|netherlands|holanda|mexico|argentina|chile|colombia|australia|india|europe|europa|latam|latin america|america latina|worldwide|world wide|global|anywhere|international|internacional)\b/.test(location);
+        if (internationalSignals) return 'international';
+        return 'unknown';
+      }
       const resumeSummary = (text) => `${(text || '').length.toLocaleString('pt-BR')} caracteres extraídos`;
       const aiDailyLimit = 6;
       const aiDailyBudget = 0.60;
@@ -537,8 +548,9 @@ ${base}`;
         const mode = $('mode').value;
         const level = $('level').value;
         const dateFilter = $('date-filter').value;
+        const geography = $('geography-filter').value;
         const hidden = new Set(store.hiddenJobs);
-        let jobs = relevant().filter(j => !hidden.has(j.id) && (!q || norm(`${j.title} ${j.company} ${j.tags.join(' ')} ${j.description}`).includes(q)) && (mode === 'Todas' || j.mode === mode) && (level === 'Todas' || j.level === level) && isWithinDays(j.published, dateFilter));
+        let jobs = relevant().filter(j => !hidden.has(j.id) && (!q || norm(`${j.title} ${j.company} ${j.tags.join(' ')} ${j.description}`).includes(q)) && (mode === 'Todas' || j.mode === mode) && (level === 'Todas' || j.level === level) && isWithinDays(j.published, dateFilter) && (geography === 'all' || jobGeography(j) === geography));
         jobs.sort((a,b) => $('sort').value === 'recent' ? parsePublished(b.published) - parsePublished(a.published) : (assess(b) ?? -1) - (assess(a) ?? -1));
         return jobs.slice(0, 120);
       };
@@ -1262,7 +1274,7 @@ ${base}`;
         }
       });
       $('profile').addEventListener('change', e => { store.profile = e.target.value; render(); });
-      ['search','mode','level','date-filter','sort'].forEach(id => $(id).addEventListener('input', render));
+      ['search','mode','level','date-filter','geography-filter','sort'].forEach(id => $(id).addEventListener('input', render));
       $('resume-file').addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
