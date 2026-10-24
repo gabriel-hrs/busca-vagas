@@ -468,6 +468,9 @@ GitHub: https://github.com/..." style="flex-basis:100%;min-height:110px;padding-
         }
         return lines.join('\n');
       }
+      function filenameSlug(value) {
+        return norm(value).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+      }
       function jobRequirements(job) {
         const text = `${job.title} ${job.description} ${job.tags.join(' ')}`;
         const found = skills.filter(skill => containsSkillText(text, skill));
@@ -1037,7 +1040,11 @@ ${base}`;
             pdf.setTextColor(156, 163, 175);
             pdf.text(`Busca Vagas · currículo otimizado · página ${page}/${totalPages}`, marginX, pageHeight - 18);
           }
-          const nameFile = selectedJob ? `curriculo-${selectedJob.id}.pdf` : 'curriculo-otimizado.pdf';
+          const candidateName = resumeCandidateName();
+          if (!candidateName) throw new Error('Não consegui identificar o nome no currículo importado para criar o arquivo.');
+          const filePrefix = selectedJob && jobLanguage(selectedJob) === 'en' ? 'resume-cv' : 'curriculo';
+          const jobSlug = filenameSlug(selectedJob?.title || 'vaga') || 'vaga';
+          const nameFile = `${filePrefix}-${filenameSlug(candidateName)}-${jobSlug}.pdf`;
           pdf.save(nameFile);
         } finally {
           if (button) { button.disabled = false; button.textContent = originalLabel; }
