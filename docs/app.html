@@ -87,8 +87,10 @@
       .callout { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px; border: 1px solid rgba(251, 191, 36, .34); border-radius: 24px; color: #fde68a; background: rgba(251, 191, 36, .08); margin-bottom: 24px; }
       .callout p { margin: 4px 0 0; color: #fef3c7; }
       .filter-bar { position: sticky; top: 14px; z-index: 10; margin-bottom: 18px; padding: 12px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 22px; background: rgba(2, 6, 23, .82); box-shadow: 0 18px 50px rgba(0,0,0,.28); backdrop-filter: blur(14px); }
-      .toolbar { display: grid; grid-template-columns: 1fr repeat(5, minmax(130px, 170px)); gap: 10px; }
+      .toolbar { display: grid; grid-template-columns: minmax(170px, 1.5fr) repeat(5, minmax(112px, 1fr)) auto auto; align-items: center; gap: 10px; }
       .toolbar input, .toolbar select, textarea { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: #0f172a; outline: 0; }
+      .filter-count { color: var(--muted); font-size: 13px; font-weight: 900; white-space: nowrap; }
+      .clear-filters { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: rgba(2,6,23,.38); font-size: 13px; font-weight: 900; white-space: nowrap; }
       .to-top { position: fixed; right: 22px; bottom: 22px; z-index: 30; min-height: 44px; padding: 0 16px; border: 1px solid rgba(56,189,248,.42); border-radius: 999px; color: #06111f; background: linear-gradient(90deg, var(--brand), var(--brand-2)); font-weight: 950; box-shadow: 0 18px 60px rgba(0,0,0,.34); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .18s ease, transform .18s ease; }
       .to-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
       .jobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -216,11 +218,13 @@
               <select id="date-filter"><option value="all">Qualquer data</option><option value="1">Hoje</option><option value="3">Últimos 3 dias</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
               <select id="geography-filter" aria-label="Filtrar por localização"><option value="all">Nacionais e internacionais</option><option value="national">Nacionais · Brasil</option><option value="international">Internacionais</option><option value="unknown">Localização indefinida</option></select>
               <select id="sort"><option value="match">Mais compatíveis</option><option value="recent">Mais recentes</option></select>
+              <span id="filter-count" class="filter-count" aria-live="polite">0 vagas</span>
+              <button id="clear-filters" class="clear-filters" type="button">Limpar filtros</button>
             </div>
           </div>
           <div id="hidden-jobs-panel" class="hidden-jobs-panel hidden"><span id="hidden-jobs-copy"></span><button id="restore-hidden-jobs" class="link-button" type="button">Reexibir todas</button></div>
           <div id="jobs" class="jobs"></div>
-          <div id="empty" class="empty hidden"><p id="empty-copy">Nenhuma vaga encontrada com esses filtros.</p><button id="reset-location-date" class="button secondary hidden" type="button">Limpar filtros de data e localização</button></div>
+          <div id="empty" class="empty hidden"><p id="empty-copy">Nenhuma vaga encontrada com esses filtros.</p></div>
         </section>
 
         <section id="saved-view" class="hidden">
@@ -686,6 +690,7 @@ ${base}`;
         renderLinkedinPanel();
         $('resume-callout').classList.toggle('hidden', !!store.resume.trim());
         const jobs = filteredJobs();
+        $('filter-count').textContent = `${jobs.length} ${jobs.length === 1 ? 'vaga' : 'vagas'}`;
         const visibleRelevant = relevant().filter(j => !store.hiddenJobs.includes(j.id));
         $('stat-total').textContent = visibleRelevant.length.toString().padStart(2,'0');
         $('stat-high').textContent = visibleRelevant.filter(j => (assess(j) ?? 0) >= 70).length.toString().padStart(2,'0');
@@ -697,7 +702,6 @@ ${base}`;
           const dateLabel = $('date-filter').selectedOptions[0]?.textContent || 'qualquer data';
           const geographyLabel = $('geography-filter').selectedOptions[0]?.textContent || 'todas as localizações';
           $('empty-copy').textContent = `${visibleRelevant.length} vagas estão na lista, mas nenhuma corresponde aos filtros atuais (${dateLabel} · ${geographyLabel}). Vagas marcadas apenas como “Remoto” entram em “Localização indefinida”.`;
-          $('reset-location-date').classList.toggle('hidden', $('date-filter').value === 'all' && $('geography-filter').value === 'all');
         }
         const hiddenCount = store.hiddenJobs.length;
         $('hidden-jobs-panel').classList.toggle('hidden', hiddenCount === 0);
@@ -1271,7 +1275,15 @@ ${base}`;
         if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; target.disabled = true; target.innerHTML = '<span class="spinner"></span>'; saved[key] = !saved[key]; store.saved = saved; render(); }
         if (target.dataset.hideJob) { store.hiddenJobs = [...store.hiddenJobs, target.dataset.hideJob]; render(); }
         if (target.id === 'restore-hidden-jobs') { store.hiddenJobs = []; render(); }
-        if (target.id === 'reset-location-date') { $('date-filter').value = 'all'; $('geography-filter').value = 'all'; render(); }
+        if (target.id === 'clear-filters') {
+          $('search').value = '';
+          $('mode').value = 'Todas';
+          $('level').value = 'Todas';
+          $('date-filter').value = 'all';
+          $('geography-filter').value = 'all';
+          $('sort').value = 'match';
+          render();
+        }
         if (target.dataset.open) openJob(target.dataset.open);
         if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
