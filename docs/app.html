@@ -220,7 +220,7 @@
           </div>
           <div id="hidden-jobs-panel" class="hidden-jobs-panel hidden"><span id="hidden-jobs-copy"></span><button id="restore-hidden-jobs" class="link-button" type="button">Reexibir todas</button></div>
           <div id="jobs" class="jobs"></div>
-          <div id="empty" class="empty hidden">Nenhuma vaga encontrada com esses filtros.</div>
+          <div id="empty" class="empty hidden"><p id="empty-copy">Nenhuma vaga encontrada com esses filtros.</p><button id="reset-location-date" class="button secondary hidden" type="button">Limpar filtros de data e localização</button></div>
         </section>
 
         <section id="saved-view" class="hidden">
@@ -437,6 +437,33 @@ GitHub: https://github.com/..." style="flex-basis:100%;min-height:110px;padding-
       const isDemoJob = (job) => job.source === 'Demonstração';
       const relevant = () => pool().filter(j => activeProfile().wants.includes(j.role) && (isDemoJob(j) || compatibleStaticJob(j)));
       const resumeText = () => `${store.resume} ${activeProfile().skills.join(' ')}`;
+      function resumeCandidateName() {
+        const blockedTerms = /curriculo|curriculum|resume|objetivo|resumo|experiencia|formacao|competencias|habilidades|portfolio|projetos|desenvolvedor|desenvolvedora|developer|designer|design|engenheir[oa]|analista|front.?end|back.?end|full.?stack|ui.?ux|brasil|brazil|sao paulo|remote|remoto/i;
+        const isName = value => {
+          const words = value.trim().split(/\s+/);
+          return words.length >= 2 && words.length <= 5 && !blockedTerms.test(value) && !/[@\d]|https?:\/\//i.test(value) && words.every(word => /^[\p{L}][\p{L}'’-]*$/u.test(word));
+        };
+        const lines = stripHtml(store.resume || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).slice(0, 12);
+        for (const line of lines) {
+          const candidate = line.replace(/^[•*-]\s*/, '').split(/\s+[|–—-]\s+/)[0].trim();
+          if (isName(candidate)) return candidate;
+        }
+        const fileName = (store.resumeMeta?.name || '').replace(/\.[^.]+$/, '').replace(/curr[ií]culo|curriculum|resume|cv|20\d{2}/gi, ' ').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').replace(/^[\s,;:|–—-]+|[\s,;:|–—-]+$/g, '').trim();
+        return isName(fileName) ? fileName : '';
+      }
+      function normalizeResumeIdentity(text, requireCandidateName = false) {
+        const candidateName = resumeCandidateName();
+        if (!candidateName && requireCandidateName) throw new Error('Não consegui identificar o nome no currículo importado. Confira se o nome completo aparece no início do currículo ou no nome do arquivo.');
+        if (!candidateName) return String(text || '');
+        const profileName = activeProfile().name;
+        const escapedProfileName = profileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const lines = String(text || '').replace(new RegExp(escapedProfileName, 'gi'), candidateName).split(/\r?\n/);
+        const firstContentLine = lines.findIndex(line => line.trim());
+        if (firstContentLine !== -1 && /^(curr[ií]culo\s+otimizado|optimized\s+resume)\b/i.test(lines[firstContentLine].trim())) {
+          lines[firstContentLine] = candidateName;
+        }
+        return lines.join('\n');
+      }
       function jobRequirements(job) {
         const text = `${job.title} ${job.description} ${job.tags.join(' ')}`;
         const found = skills.filter(skill => containsSkillText(text, skill));
@@ -666,6 +693,12 @@ ${base}`;
         $('stat-saved').textContent = Object.keys(store.saved).filter(k => k.startsWith(`${store.profile}:`) && store.saved[k]).length.toString().padStart(2,'0');
         $('jobs').innerHTML = jobs.map(card).join('');
         $('empty').classList.toggle('hidden', jobs.length > 0);
+        if (!jobs.length) {
+          const dateLabel = $('date-filter').selectedOptions[0]?.textContent || 'qualquer data';
+          const geographyLabel = $('geography-filter').selectedOptions[0]?.textContent || 'todas as localizações';
+          $('empty-copy').textContent = `${visibleRelevant.length} vagas estão na lista, mas nenhuma corresponde aos filtros atuais (${dateLabel} · ${geographyLabel}). Vagas marcadas apenas como “Remoto” entram em “Localização indefinida”.`;
+          $('reset-location-date').classList.toggle('hidden', $('date-filter').value === 'all' && $('geography-filter').value === 'all');
+        }
         const hiddenCount = store.hiddenJobs.length;
         $('hidden-jobs-panel').classList.toggle('hidden', hiddenCount === 0);
         $('hidden-jobs-copy').textContent = `${hiddenCount} vaga(s) ocultada(s) para Pessoa ${store.profile === 'gabriel' ? 'G' : 'M'}.`;
@@ -796,7 +829,7 @@ ${base}`;
         $('modal-title').textContent = job.title;
         const existingAi = savedAiResume(job);
         const eligibility = aiEligibility(job);
-        const resumeText = existingAi?.text || optimizedResumeText(job);
+        const resumeText = normalizeResumeIdentity(existingAi?.text || optimizedResumeText(job));
         const sourceLink = job.url ? `<a class="button secondary" href="${escapeHtml(job.url)}" target="_blank" rel="noreferrer">Abrir vaga original ↗</a>` : '<span class="file-note">Link original não disponível para esta vaga.</span>';
         const app = applicationState(job);
         const stages = ['Salva', 'Vou me candidatar', 'Candidatura enviada', 'Entrevista', 'Teste técnico', 'Proposta', 'Encerrada'];
@@ -844,6 +877,10 @@ ${base}`;
           $('ai-status').textContent = 'Importe seu currículo-base antes de usar IA.';
           return;
         }
+        if (!resumeCandidateName()) {
+          $('ai-status').textContent = 'Não consegui identificar o nome real no currículo. Confira o nome no início do arquivo antes de gerar para evitar gastar créditos com um PDF incorreto.';
+          return;
+        }
         const button = $('generate-ai-resume');
         const originalLabel = button.textContent;
         button.disabled = true;
@@ -863,7 +900,7 @@ ${base}`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              profileName: activeProfile().name,
+              profileName: resumeCandidateName(),
               role: activeProfile().role,
               resume: store.resume,
               language: jobLanguage(selectedJob),
@@ -873,8 +910,9 @@ ${base}`;
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.details || data.error || 'Não foi possível gerar com IA.');
           if (!data.resume) throw new Error('A IA não retornou um currículo editável.');
-          $('optimized-resume').value = data.resume;
-          saveAiResume(selectedJob, data);
+          const normalizedResume = normalizeResumeIdentity(data.resume);
+          $('optimized-resume').value = normalizedResume;
+          saveAiResume(selectedJob, { ...data, resume: normalizedResume });
           registerAiUsage(Number(data.estimatedCost || estimatedAiCost));
           button.textContent = 'IA já gerou esta vaga';
           button.disabled = true;
@@ -897,7 +935,7 @@ ${base}`;
         const originalLabel = button?.textContent;
         if (button) { button.disabled = true; button.innerHTML = '<span class="spinner"></span>Gerando PDF...'; }
         try {
-          const text = $('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : '');
+          const text = normalizeResumeIdentity($('optimized-resume')?.value || (selectedJob ? optimizedResumeText(selectedJob) : ''), Boolean(selectedJob && savedAiResume(selectedJob)));
           const { jsPDF } = await import('https://esm.sh/jspdf@2.5.2');
           const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
           const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1233,6 +1271,7 @@ ${base}`;
         if (target.dataset.save) { const key = `${store.profile}:${target.dataset.save}`; const saved = store.saved; target.disabled = true; target.innerHTML = '<span class="spinner"></span>'; saved[key] = !saved[key]; store.saved = saved; render(); }
         if (target.dataset.hideJob) { store.hiddenJobs = [...store.hiddenJobs, target.dataset.hideJob]; render(); }
         if (target.id === 'restore-hidden-jobs') { store.hiddenJobs = []; render(); }
+        if (target.id === 'reset-location-date') { $('date-filter').value = 'all'; $('geography-filter').value = 'all'; render(); }
         if (target.dataset.open) openJob(target.dataset.open);
         if (target.id === 'generate-ai-resume') generateResumeWithAi();
         if (target.id === 'download-resume-pdf') downloadOptimizedPdf();
