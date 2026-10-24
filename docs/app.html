@@ -1050,9 +1050,40 @@ ${base}`;
           if (button) { button.disabled = false; button.textContent = originalLabel; }
         }
       }
+      function classifyJobRole(title, description, sourceTags) {
+        const titleText = norm(title);
+        const tagsText = norm((sourceTags || []).join(' '));
+        const designTitle = /\b(ui\s*\/?\s*ux|ux designer|ui designer|product designer|visual designer|interaction designer|service designer|ux researcher|design researcher)\b/.test(titleText);
+        const frontendTitle = /\b(front.?end|react developer|javascript developer|web developer|ui developer)\b/.test(titleText);
+        const fullstackTitle = /\b(full.?stack|fullstack)\b/.test(titleText);
+        const backendTitle = /\b(back.?end|backend|server.?side)\b/.test(titleText);
+
+        // Use the role in the title as the strongest evidence. A design mention in a
+        // long description should not turn a software opening into a UX job (or vice versa).
+        if (designTitle && (frontendTitle || fullstackTitle || backendTitle)) return 'Other';
+        if (designTitle) return 'UI/UX';
+        if (fullstackTitle) return 'Full Stack';
+        if (frontendTitle) return 'Front-end';
+        if (backendTitle) return 'Backend';
+
+        const text = norm(`${title} ${description} ${tagsText}`);
+        const designSignals = ['figma', 'ux', 'ui design', 'prototipacao', 'prototyping', 'wireframe', 'user research', 'pesquisa com usuarios', 'design system', 'usabilidade', 'usability'];
+        const frontendSignals = ['react', 'typescript', 'javascript', 'html', 'css', 'frontend', 'front end', 'angular', 'vue', 'nextjs'];
+        const backendSignals = ['nodejs', 'node.js', 'java', 'python', 'golang', 'ruby', 'php', 'api', 'sql', 'backend', 'back end'];
+        const countSignals = signals => signals.reduce((count, signal) => count + (containsTerm(text, signal) ? 1 : 0), 0);
+        const designCount = countSignals(designSignals);
+        const frontendCount = countSignals(frontendSignals);
+        const backendCount = countSignals(backendSignals);
+
+        if (designCount >= 2 && frontendCount + backendCount < 2) return 'UI/UX';
+        if (frontendCount >= 2 && backendCount >= 1) return 'Full Stack';
+        if (frontendCount >= 2 && backendCount === 0) return 'Front-end';
+        if (backendCount >= 2 && frontendCount === 0) return 'Backend';
+        return 'Other';
+      }
       function toStaticJob(input) {
         const text = `${input.title || ''} ${input.description || ''} ${(input.tags || []).join(' ')}`;
-        const role = /ui|ux|product designer|figma|design system|research/i.test(text) && !/front.?end|full.?stack|react|angular|vue/i.test(text) ? 'UI/UX' : /full.?stack|fullstack/i.test(text) ? 'Full Stack' : 'Front-end';
+        const role = classifyJobRole(input.title || '', input.description || '', input.tags || []);
         const levelText = norm(text);
         const level = /senior|sr\b|lead|staff|principal/.test(levelText) ? 'Sênior' : /junior|jr\b|entry|intern|estagio|estagiario|trainee/.test(levelText) ? 'Júnior' : /mid|pleno|intermediate/.test(levelText) ? 'Pleno' : 'Não informada';
         const locationText = norm(`${input.location || ''} ${input.description || ''}`);
